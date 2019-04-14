@@ -1,7 +1,7 @@
 
 #pragma once
 
-#include "../core/Bitmap.h"
+#include "Bitmap.h"
 
 namespace msdfgen {
 

@@ -1,5 +1,5 @@
-#ifndef MSDF_H
-#define MSDF_H
+#ifndef MSDFGEN_API_H
+#define MSDFGEN_API_H
 
 /*
  * MULTI-CHANNEL SIGNED DISTANCE FIELD GENERATOR v1.6 (2019-04-08)
@@ -50,4 +50,4 @@ int msdf_dump_glyph(msdf_glyph_handle g, const char *filename);
 }
 #endif
 
-#endif /* MSDF_H */
+#endif /* MSDFGEN_API_H */

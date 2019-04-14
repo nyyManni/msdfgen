@@ -32,8 +32,8 @@ public:
     const T & operator()(int x, int y) const;
 
     T *content;
-    int w, h;
 private:
+    int w, h;
 
 };
 

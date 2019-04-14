@@ -18,6 +18,6 @@
  *
  */
 
-#include "ext/save-png.h"
-#include "ext/import-svg.h"
-#include "ext/import-font.h"
+#include "save-png.h"
+#include "import-svg.h"
+#include "import-font.h"

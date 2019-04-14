@@ -2,7 +2,7 @@
 #pragma once
 
 #include <cstdlib>
-#include "../core/Shape.h"
+#include "Shape.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_OUTLINE_H

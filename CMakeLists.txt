@@ -66,13 +66,18 @@ include_directories(${FREETYPE_INCLUDE_DIRS})
 include_directories("include")
 
 # Build the library (aliased name because it's the same target name the exe)
-folderize_sources(msdfgen_HEADERS ${CMAKE_SOURCE_DIR})
-folderize_sources(msdfgen_SOURCES ${CMAKE_SOURCE_DIR})
+# folderize_sources(msdfgen_HEADERS ${CMAKE_SOURCE_DIR})
+# folderize_sources(msdfgen_SOURCES ${CMAKE_SOURCE_DIR})
 
 add_library(lib_msdfgen SHARED ${msdfgen_SOURCES} ${msdfgen_HEADERS})
 set_target_properties(lib_msdfgen PROPERTIES OUTPUT_NAME msdfgen)
+set_target_properties(lib_msdfgen PROPERTIES PUBLIC_HEADERS "msdf.h")
 target_link_libraries(lib_msdfgen ${FREETYPE_LIBRARIES})
 
+INSTALL(TARGETS lib_msdfgen
+        LIBRARY DESTINATION /usr/lib/x86_64-linux-gnu/
+        PUBLIC_HEADER DESTINATION /usr/include/x86_64-linux-gnu/
+)
 # Build the executable
 
 add_executable(msdfgen main.cpp msdfgen.h msdfgen-ext.h)

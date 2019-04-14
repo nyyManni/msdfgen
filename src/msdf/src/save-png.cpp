@@ -1,7 +1,7 @@
 
 #include "save-png.h"
 
-#include "../core/arithmetics.hpp"
+#include "arithmetics.hpp"
 #include <lodepng.h>
 
 namespace msdfgen {

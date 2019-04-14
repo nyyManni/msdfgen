@@ -4,7 +4,7 @@
 
 #include <cstdio>
 #include <tinyxml2.h>
-#include "../core/arithmetics.hpp"
+#include "arithmetics.hpp"
 
 #ifdef _WIN32
     #pragma warning(disable:4996)

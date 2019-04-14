@@ -6,7 +6,6 @@
  *
  */
 
-#ifdef MSDFGEN_STANDALONE
 
 #define _USE_MATH_DEFINES
 #include <cstdio>
@@ -901,4 +900,3 @@ int main(int argc, const char * const *argv) {
     return 0;
 }
 
-#endif

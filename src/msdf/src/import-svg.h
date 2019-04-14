@@ -2,7 +2,7 @@
 #pragma once
 
 #include <cstdlib>
-#include "../core/Shape.h"
+#include "Shape.h"
 
 namespace msdfgen {
 
