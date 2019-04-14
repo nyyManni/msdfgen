@@ -24,18 +24,6 @@ class FreetypeHandle {
 
 };
 
-class FontHandle {
-    friend FontHandle * loadFont(FreetypeHandle *library, const char *filename);
-    friend void destroyFont(FontHandle *font);
-    friend bool getFontScale(double &output, FontHandle *font);
-    friend bool getFontWhitespaceWidth(double &spaceAdvance, double &tabAdvance, FontHandle *font);
-    friend bool loadGlyph(Shape &output, FontHandle *font, int unicode, double *advance);
-    friend bool getKerning(double &output, FontHandle *font, int unicode1, int unicode2);
-
-    FT_Face face;
-
-};
-
 struct FtContext {
     Point2 position;
     Shape *shape;
