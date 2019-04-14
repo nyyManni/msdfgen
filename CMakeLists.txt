@@ -69,7 +69,7 @@ include_directories("include")
 folderize_sources(msdfgen_HEADERS ${CMAKE_SOURCE_DIR})
 folderize_sources(msdfgen_SOURCES ${CMAKE_SOURCE_DIR})
 
-add_library(lib_msdfgen ${msdfgen_SOURCES} ${msdfgen_HEADERS})
+add_library(lib_msdfgen SHARED ${msdfgen_SOURCES} ${msdfgen_HEADERS})
 set_target_properties(lib_msdfgen PROPERTIES OUTPUT_NAME msdfgen)
 target_link_libraries(lib_msdfgen ${FREETYPE_LIBRARIES})
 
