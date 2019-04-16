@@ -15,14 +15,6 @@ namespace msdfgen {
 
 #define REQUIRE(cond) { if (!(cond)) return false; }
 
-class FreetypeHandle {
-    friend FreetypeHandle * initializeFreetype();
-    friend void deinitializeFreetype(FreetypeHandle *library);
-    friend FontHandle * loadFont(FreetypeHandle *library, const char *filename);
-
-    FT_Library library;
-
-};
 
 struct FtContext {
     Point2 position;

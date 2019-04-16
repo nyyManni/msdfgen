@@ -21,6 +21,15 @@ public:
     FT_Face face;
 
 };
+class FreetypeHandle {
+    friend FreetypeHandle * initializeFreetype();
+    friend void deinitializeFreetype(FreetypeHandle *library);
+    friend FontHandle * loadFont(FreetypeHandle *library, const char *filename);
+
+public:
+    FT_Library library;
+
+};
 
 /// Initializes the FreeType library
 FreetypeHandle * initializeFreetype();

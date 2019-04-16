@@ -10,15 +10,27 @@
 
 using namespace msdfgen;
 
+static FreetypeHandle *ft = nullptr;
+
 msdf_font_handle msdf_load_font(const char *path) {
-    static FreetypeHandle *ft = nullptr;
     if (!ft)
         ft = initializeFreetype();
     FontHandle *font = loadFont(ft, path);
     return (void *)font;
 }
 
-struct msdf_glyph *msdf_generate_glyph(msdf_font_handle f, int c, double range,
+msdf_font_handle msdf_font_from_face(FT_Library lib, FT_Face face) {
+    if (!ft) {
+        ft = new FreetypeHandle;
+        ft->library = lib;
+    }
+    FontHandle *font = new FontHandle;
+    font->face = face;
+    return font;
+}
+
+
+msdf_glyph_handle msdf_generate_glyph(msdf_font_handle f, int c, double range,
                                        float scale) {
     Shape shape;
     FontHandle *font = (FontHandle *)f;
@@ -40,22 +52,29 @@ struct msdf_glyph *msdf_generate_glyph(msdf_font_handle f, int c, double range,
 
     generateMSDF(msdf, shape, range, scale,
                  Vector2(-bearing_x, height - bearing_y) +
-                     Vector2(range / 2.0, range / 2.0),
+                 Vector2(range, range) / 2.0,
                  1.001, true);
 
-    struct msdf_glyph *g = new msdf_glyph();
+    msdf_glyph_handle g = new msdf_glyph();
 
+    g->c = c;
     g->bitmap.width = msdf.width();
     g->bitmap.height = msdf.height();
     g->bitmap.channels = 3;
+    g->bitmap.scale = scale;
     g->bitmap.data = (float *)malloc(sizeof(FloatRGB) * msdf.width() * msdf.height());
     g->advance = (font->face->glyph->metrics.horiAdvance / 64.0) * scale;
+    g->bearing[0] = bearing_x;
+    g->bearing[1] = bearing_y;
+    g->size[0] = width;
+    g->size[1] = height;
+    g->padding = (range / 2.0);
     std::memcpy(g->bitmap.data, msdf.content, sizeof(FloatRGB) * msdf.width() * msdf.height());
 
     return g;
 }
 
-void msdf_release_glyph(struct msdf_glyph *g) {
+void msdf_release_glyph(msdf_glyph_handle g) {
     free(g->bitmap.data);
     delete g;
 }
