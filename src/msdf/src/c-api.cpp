@@ -26,8 +26,6 @@ msdf_font_handle msdf_load_font(const char *path) {
     f->descender = f->face->descender / 64.0;
     f->height = (f->ascender - f->descender) / f->xheight;
 
-    fprintf(stderr, "underline: %.2f, %.2f\n", f->face->underline_position / 64.0,
-            f->face->underline_thickness / 64.0);
     f->underline_y = f->face->underline_position / 64.0 / f->xheight;
     f->underline_thickness = f->face->underline_thickness / 64.0 / f->xheight;
 
