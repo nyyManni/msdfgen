@@ -16,24 +16,33 @@ msdf_font_handle msdf_load_font(const char *path) {
     if (!ft)
         ft = initializeFreetype();
     FontHandle *font = loadFont(ft, path);
-    return (void *)font;
+    msdf_font_handle f = (msdf_font_handle)std::malloc(sizeof(struct msdf_font));
+    f->face = font->face;
+    f->__handle = font;
+
+    FT_Load_Char(f->face, 'x', FT_LOAD_NO_SCALE);
+    f->xheight = f->face->glyph->metrics.height / 64.0;
+    f->ascender = f->face->ascender / 64.0;
+    f->descender = f->face->descender / 64.0;
+    f->height = (f->ascender - f->descender) / f->xheight;
+
+    fprintf(stderr, "underline: %.2f, %.2f\n", f->face->underline_position / 64.0,
+            f->face->underline_thickness / 64.0);
+    f->underline_y = f->face->underline_position / 64.0 / f->xheight;
+    f->underline_thickness = f->face->underline_thickness / 64.0 / f->xheight;
+
+    return f;
 }
 
-msdf_font_handle msdf_font_from_face(FT_Library lib, FT_Face face) {
-    if (!ft) {
-        ft = new FreetypeHandle;
-        ft->library = lib;
-    }
-    FontHandle *font = new FontHandle;
-    font->face = face;
-    return font;
+void msdf_release_font(msdf_font_handle f) {
+    delete (FontHandle *)f->__handle;
+    std::free(f);
 }
-
 
 msdf_glyph_handle msdf_generate_glyph(msdf_font_handle f, int c, double range,
-                                       float scale) {
+                                      float scale) {
     Shape shape;
-    FontHandle *font = (FontHandle *)f;
+    FontHandle *font = (FontHandle *)f->__handle;
     if (!loadGlyph(shape, font, c))
         return NULL;
 
@@ -51,25 +60,28 @@ msdf_glyph_handle msdf_generate_glyph(msdf_font_handle f, int c, double range,
     Bitmap<FloatRGB> msdf(bitmap_width, bitmap_height);
 
     generateMSDF(msdf, shape, range, scale,
-                 Vector2(-bearing_x, height - bearing_y) +
-                 Vector2(range, range) / 2.0,
+                 Vector2(-bearing_x, height - bearing_y) + Vector2(range, range) / 2.0,
                  1.001, true);
 
     msdf_glyph_handle g = new msdf_glyph();
 
-    g->c = c;
+    g->code = c;
+    g->index = font->face->glyph->reserved;
     g->bitmap.width = msdf.width();
     g->bitmap.height = msdf.height();
     g->bitmap.channels = 3;
     g->bitmap.scale = scale;
     g->bitmap.data = (float *)malloc(sizeof(FloatRGB) * msdf.width() * msdf.height());
-    g->advance = (font->face->glyph->metrics.horiAdvance / 64.0) * scale;
-    g->bearing[0] = bearing_x;
-    g->bearing[1] = bearing_y;
-    g->size[0] = width;
-    g->size[1] = height;
-    g->padding = (range / 2.0);
-    std::memcpy(g->bitmap.data, msdf.content, sizeof(FloatRGB) * msdf.width() * msdf.height());
+
+    g->advance = (font->face->glyph->metrics.horiAdvance / 64.0) / f->xheight;
+    g->bearing[0] = bearing_x / f->xheight;
+    g->bearing[1] = bearing_y / f->xheight;
+    g->size[0] = width / f->xheight;
+    g->size[1] = height / f->xheight;
+    g->padding = (range / 2.0) / f->xheight;
+
+    std::memcpy(g->bitmap.data, msdf.content,
+                sizeof(FloatRGB) * msdf.width() * msdf.height());
 
     return g;
 }
@@ -80,7 +92,8 @@ void msdf_release_glyph(msdf_glyph_handle g) {
 }
 
 int msdf_dump_glyph(const msdf_glyph_handle g, const char *filename) {
-    std::vector<unsigned char> pixels(g->bitmap.channels * g->bitmap.width * g->bitmap.height);
+    std::vector<unsigned char> pixels(g->bitmap.channels * g->bitmap.width *
+                                      g->bitmap.height);
     std::vector<unsigned char>::iterator it = pixels.begin();
     for (int y = g->bitmap.height - 1; y >= 0; --y)
         for (int x = 0; x < g->bitmap.width; ++x) {

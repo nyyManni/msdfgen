@@ -1,5 +1,5 @@
-#ifndef MSDFGEN_API_H
-#define MSDFGEN_API_H
+#ifndef MSDF_H
+#define MSDF_H
 
 /*
  * MULTI-CHANNEL SIGNED DISTANCE FIELD GENERATOR v1.6 (2019-04-08)
@@ -24,11 +24,44 @@ extern "C" {
 #endif
 
 /**
+ * MSDF font representation
+ */
+struct msdf_font {
+    /** A reference to FreeType face object */
+    FT_Face face;
+
+    /** The typographic ascender of the face */
+    float ascender;
+
+    /** The typographic descender of the face */
+    float descender;
+
+    /** Maximum height of a glyph in this font */
+    float height;
+
+    /** Height of the lowercase 'x' */
+    float xheight;
+
+    /** Position of the underline relative to the font origin */
+    float underline_y;
+
+    /** Thickness of the underline */
+    float underline_thickness;
+
+    /** Internal, handle to C++ data structure */
+    void *__handle;
+};
+typedef struct msdf_font *msdf_font_handle;
+
+/**
  * MSDF glyph representation
  */
 struct msdf_glyph {
     /** Unicode character code of this glyph */
-    int c;
+    int code;
+
+    /* FreeType glyph index. */
+    int index;
 
     /**
      * Bitmap storing the rendered MSDF data
@@ -54,10 +87,11 @@ struct msdf_glyph {
     float size[2];
     /** The padding caused by the thickening support */
     float padding;
+
+    /** The font this glyph was rendered with */
+    msdf_font_handle font;
 };
 typedef struct msdf_glyph *msdf_glyph_handle;
-
-typedef void *msdf_font_handle;
 
 /**
  * Load a FreeType font from a file.
@@ -67,22 +101,24 @@ typedef void *msdf_font_handle;
 msdf_font_handle msdf_load_font(const char *path);
 
 /**
- * Generate a font handle from already created Freetype Face object.
- */
-msdf_font_handle msdf_font_from_face(FT_Library lib, FT_Face face);
-
-/**
  * Render an MSDF bitmap and fill in font metrics
  */
 msdf_glyph_handle msdf_generate_glyph(msdf_font_handle f, int c, double range,
                                       float scale);
+
+/**
+ * Render an MSDF bitmap using OpenCL
+ */
+msdf_glyph_handle msdf_generate_glyph_cl(msdf_font_handle f, int c, double range,
+                                         float scale);
+
 /**
  * Release memory allocated by the glyph.
  */
 void msdf_release_glyph(msdf_glyph_handle g);
 
 /**
- * Write the bitmap into a (.png) file.
+ * Write the bitmap into a (.png) file. For debugging purposes.
  */
 int msdf_dump_glyph(msdf_glyph_handle g, const char *filename);
 
@@ -90,4 +126,4 @@ int msdf_dump_glyph(msdf_glyph_handle g, const char *filename);
 }
 #endif
 
-#endif /* MSDFGEN_API_H */
+#endif /* MSDF_H */
