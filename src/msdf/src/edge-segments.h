@@ -40,6 +40,8 @@ public:
     virtual void moveEndPoint(Point2 to) = 0;
     /// Splits the edge segments into thirds which together represent the original edge.
     virtual void splitInThirds(EdgeSegment *&part1, EdgeSegment *&part2, EdgeSegment *&part3) const = 0;
+    
+    virtual void dump() const = 0;
 
 };
 
@@ -61,6 +63,7 @@ public:
     void moveEndPoint(Point2 to);
     void splitInThirds(EdgeSegment *&part1, EdgeSegment *&part2, EdgeSegment *&part3) const;
 
+    void dump() const;
 };
 
 /// A quadratic Bezier curve.
@@ -81,6 +84,8 @@ public:
     void moveEndPoint(Point2 to);
     void splitInThirds(EdgeSegment *&part1, EdgeSegment *&part2, EdgeSegment *&part3) const;
 
+    // void dump() const;
+    void dump() const;
 };
 
 /// A cubic Bezier curve.
@@ -101,6 +106,8 @@ public:
     void moveEndPoint(Point2 to);
     void splitInThirds(EdgeSegment *&part1, EdgeSegment *&part2, EdgeSegment *&part3) const;
 
+    // void dump() const;
+    void dump() const;
 };
 
 }

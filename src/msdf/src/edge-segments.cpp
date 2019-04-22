@@ -1,3 +1,4 @@
+#include <stdio.h>
 
 #include "edge-segments.h"
 
@@ -7,6 +8,8 @@
 namespace msdfgen {
 
 void EdgeSegment::distanceToPseudoDistance(SignedDistance &distance, Point2 origin, double param) const {
+    printf("--> p: (%.2f, %.2f)\n", origin.x, origin.y);
+    dump();
     if (param < 0) {
         Vector2 dir = direction(0).normalize();
         Vector2 aq = origin-point(0);
@@ -29,6 +32,15 @@ void EdgeSegment::distanceToPseudoDistance(SignedDistance &distance, Point2 orig
                 distance.dot = 0;
             }
         }
+    }
+
+    static int debug = 10;
+    if (debug) {
+
+        // printf("    d: %.2f\n", resolve_multi_distance(d));
+        // printf("----->  \t%.2f,\t%.2f (%.2f)\n", distance.distance, distance.dot, param);
+        // printf("    d: %.2f, %.2f, %.2f\n", d.r.x, d.g.x, d.b.x);
+        debug--;
     }
 }
 
@@ -95,6 +107,9 @@ Vector2 CubicSegment::direction(double param) const {
 }
 
 SignedDistance LinearSegment::signedDistance(Point2 origin, double &param) const {
+    // dump();
+    // printf("param: %.2f\n", param);
+    // printf("vec2: %.2f, %.2f\n", origin.x, origin.y);
     Vector2 aq = origin-p[0];
     Vector2 ab = p[1]-p[0];
     param = dotProduct(aq, ab)/dotProduct(ab, ab);
@@ -414,6 +429,24 @@ void CubicSegment::splitInThirds(EdgeSegment *&part1, EdgeSegment *&part2, EdgeS
         mix(mix(mix(p[0], p[1], 2/3.), mix(p[1], p[2], 2/3.), 2/3.), mix(mix(p[1], p[2], 2/3.), mix(p[2], p[3], 2/3.), 2/3.), 1/3.),
         point(2/3.), color);
     part3 = new CubicSegment(point(2/3.), mix(mix(p[1], p[2], 2/3.), mix(p[2], p[3], 2/3.), 2/3.), p[2] == p[3] ? p[3] : mix(p[2], p[3], 2/3.), p[3], color);
+}
+
+
+
+
+void LinearSegment::dump() const {
+    printf("--> linear segment (%i): (%.2f, %.2f), (%.2f, %.2f)\n",
+           color, p[0].x, p[0].y, p[1].x, p[1].y);
+}
+
+void QuadraticSegment::dump() const {
+    printf("--> quad   segment (%i): (%.2f, %.2f), (%.2f, %.2f), (%.2f, %.2f)\n", 
+           color, p[0].x, p[0].y, p[1].x, p[1].y, p[2].x, p[2].y);
+}
+
+void CubicSegment::dump() const {
+    printf("--> cubic  segment (%i): (%.2f, %.2f), (%.2f, %.2f), (%.2f, %.2f), (%.2f, %.2f)\n", 
+           color, p[0].x, p[0].y, p[1].x, p[1].y, p[2].x, p[2].y, p[3].x, p[3].y);
 }
 
 }

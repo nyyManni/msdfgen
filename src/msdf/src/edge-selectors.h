@@ -22,6 +22,7 @@ public:
     void merge(const TrueDistanceSelector &other);
     DistanceType distance() const;
 
+    void dump() const {};
 private:
     Point2 p;
     SignedDistance minDistance;
@@ -38,6 +39,7 @@ public:
     void addEdgePseudoDistance(const SignedDistance &distance);
     void merge(const PseudoDistanceSelectorBase &other);
     double computeDistance(const Point2 &p) const;
+    void dump() const;
 
 private:
     SignedDistance minTrueDistance;
@@ -57,6 +59,7 @@ public:
     explicit PseudoDistanceSelector(const Point2 &p = Point2());
     void addEdge(const EdgeSegment *prevEdge, const EdgeSegment *edge, const EdgeSegment *nextEdge);
     DistanceType distance() const;
+    void dump() const {};
 
 private:
     Point2 p;
@@ -74,6 +77,7 @@ public:
     void merge(const MultiDistanceSelector &other);
     DistanceType distance() const;
 
+    void dump() const;
 private:
     Point2 p;
     PseudoDistanceSelectorBase r, g, b;

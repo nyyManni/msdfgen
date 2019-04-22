@@ -44,10 +44,6 @@ msdf_glyph_handle msdf_generate_glyph(msdf_font_handle f, int c, double range,
     if (!loadGlyph(shape, font, c))
         return NULL;
 
-    shape.normalize();
-
-    edgeColoringSimple(shape, 3.0);
-
     float width = font->face->glyph->metrics.width / 64.0;
     float height = font->face->glyph->metrics.height / 64.0;
     float bearing_x = font->face->glyph->metrics.horiBearingX / 64.0;
@@ -55,21 +51,16 @@ msdf_glyph_handle msdf_generate_glyph(msdf_font_handle f, int c, double range,
 
     int bitmap_width = ceil((width + range) * scale);
     int bitmap_height = ceil((height + range) * scale);
-    Bitmap<FloatRGB> msdf(bitmap_width, bitmap_height);
-
-    generateMSDF(msdf, shape, range, scale,
-                 Vector2(-bearing_x, height - bearing_y) + Vector2(range, range) / 2.0,
-                 1.001, true);
 
     msdf_glyph_handle g = new msdf_glyph();
 
     g->code = c;
     g->index = font->face->glyph->reserved;
-    g->bitmap.width = msdf.width();
-    g->bitmap.height = msdf.height();
+    g->bitmap.width = bitmap_width;
+    g->bitmap.height = bitmap_height;
     g->bitmap.channels = 3;
     g->bitmap.scale = scale;
-    g->bitmap.data = (float *)malloc(sizeof(FloatRGB) * msdf.width() * msdf.height());
+    g->bitmap.data = (float *)malloc(sizeof(FloatRGB) * bitmap_width * bitmap_height);
 
     g->advance = (font->face->glyph->metrics.horiAdvance / 64.0) / f->xheight;
     g->bearing[0] = bearing_x / f->xheight;
@@ -78,8 +69,15 @@ msdf_glyph_handle msdf_generate_glyph(msdf_font_handle f, int c, double range,
     g->size[1] = height / f->xheight;
     g->padding = (range / 2.0) / f->xheight;
 
+    shape.normalize();
+    edgeColoringSimple(shape, 3.0);
+    Bitmap<FloatRGB> msdf(bitmap_width, bitmap_height);
+    generateMSDF(msdf, shape, range, scale,
+                 Vector2(-bearing_x, height - bearing_y) + Vector2(range, range) / 2.0,
+                 1.001, true);
+
     std::memcpy(g->bitmap.data, msdf.content,
-                sizeof(FloatRGB) * msdf.width() * msdf.height());
+                sizeof(FloatRGB) * bitmap_width * bitmap_height);
 
     return g;
 }

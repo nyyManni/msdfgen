@@ -30,7 +30,6 @@ public:
     operator EdgeSegment *();
     operator const EdgeSegment *() const;
 
-private:
     EdgeSegment *edgeSegment;
 
 };

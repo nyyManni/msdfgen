@@ -1,4 +1,5 @@
 
+#include <stdio.h>
 #include "contour-combiners.h"
 
 #include "arithmetics.hpp"
@@ -21,6 +22,14 @@ static double resolveDistance(double distance) {
 
 static double resolveDistance(const MultiDistance &distance) {
     return median(distance.r, distance.g, distance.b);
+}
+static void dumpDistance(double distance) {
+    return;
+}
+
+static void dumpDistance(const MultiDistance &distance) {
+    // printf("+dump  \t%.2f,\t%.2f,\t%.2f\n", distance.r, distance.g, distance.b);
+    return;
 }
 
 template <class EdgeSelector>
@@ -60,9 +69,23 @@ void OverlappingContourCombiner<EdgeSelector>::reset(const Point2 &p) {
     outerEdgeSelector = EdgeSelector(p);
 }
 
+    #include <stdio.h>
 template <class EdgeSelector>
 void OverlappingContourCombiner<EdgeSelector>::setContourEdge(int i, const EdgeSelector &edgeSelector) {
+    
+    edgeSelector.dump();
+
     DistanceType edgeDistance = edgeSelector.distance();
+    // MultiDistance *m = dynamic_cast<MultiDistance *>(&edgeDistance);
+    
+        printf("--> d: %.2f\n", resolveDistance(edgeDistance));
+    static int debug = 1;
+    if (debug) {
+        dumpDistance(edgeDistance);
+        // printf("->  edgeDistance: %.2f, %.2f, %.2f\n", edgeDistance.distance, edgeDistance.g.x, edgeDistance.b.x);
+        debug--;
+    }
+    // printf("--> winding: %d\n", windings[i]);
     edgeSelectors[i] = edgeSelector;
     shapeEdgeSelector.merge(edgeSelector);
     if (windings[i] > 0 && resolveDistance(edgeDistance) >= 0)
@@ -78,6 +101,7 @@ typename OverlappingContourCombiner<EdgeSelector>::DistanceType OverlappingConto
     DistanceType outerDistance = outerEdgeSelector.distance();
     double innerScalarDistance = resolveDistance(innerDistance);
     double outerScalarDistance = resolveDistance(outerDistance);
+    printf("--> inner: %.2e, outer: %.2e\n", innerScalarDistance, outerScalarDistance);
     DistanceType distance;
     initDistance(distance);
     int contourCount = (int) windings.size();
