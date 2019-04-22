@@ -40,17 +40,18 @@ struct workspace {
     struct edge_selector shape;
     struct edge_selector inner;
     struct edge_selector outer;
+    int ncontours;
     struct {
         int32_t winding;
         struct edge_selector *edge_selector;
     } edges[2];
 };
 
-static inline vec3 to_pixel(vec3 d, float range) {
+static inline vec3 to_pixel(multi_distance d, float range) {
     vec3 p;
-    p.r = d.x / range + 0.5f;
-    p.g = d.y / range + 0.5f;
-    p.b = d.z / range + 0.5f;
+    p.r = d.r / range + 0.5f;
+    p.g = d.g / range + 0.5f;
+    p.b = d.b / range + 0.5f;
     return p;
 }
 
@@ -171,7 +172,7 @@ bool point_facing_edge(segment *prev, segment *cur, segment *next, vec2 p, float
     return true;
 }
 
-vec3 get_pixel_distance(struct workspace *ws);
+multi_distance get_pixel_distance(struct workspace *ws);
 
 void calculate_pixel(struct shape *, vec3 *, struct workspace *, int, int, int, vec2, vec2, float);
 
@@ -215,6 +216,7 @@ int main() {
     struct workspace *ws = (struct workspace *)malloc(work_area_size * 16);
 
 
+    ws->ncontours = shape.contours.size();
     struct shape *glyph_data = (struct shape *)input_buffer;
     {
         glyph_data->ncontours = shape.contours.size();
@@ -361,9 +363,11 @@ void calculate_pixel(struct shape *shape, vec3 *output, struct workspace *ws,
         c = (contour *)s;
     }
 
-    vec3 d = get_pixel_distance(ws);
-    // vec3 d;
-    output[y * stride + x] = to_pixel(d, range);
+    multi_distance d = get_pixel_distance(ws);
+    vec3 pixel = to_pixel(d, range);
+    printf("==> PIXEL: %.2f %.2f %.2f\n", pixel.r, pixel.g, pixel.b);
+    output[y * stride + x] = pixel;
+
 }
 
 void add_segment(struct edge_selector *e, segment *prev, segment *cur, segment *next) {
@@ -466,14 +470,59 @@ float compute_distance(pseudo_distance_selector_base *b, vec2 point) {
     return min_distance;
 }
 
-vec3 get_pixel_distance(struct workspace *ws) {
+multi_distance get_pixel_distance(struct workspace *ws) {
     multi_distance shape_distance = get_distance(&ws->shape);
     multi_distance inner_distance = get_distance(&ws->inner);
     multi_distance outer_distance = get_distance(&ws->outer);
     float inner_d = resolve_multi_distance(inner_distance);
     float outer_d = resolve_multi_distance(outer_distance);
     printf("==> inner: %.2e, outer: %.2e\n", inner_d, outer_d);
-    vec3 v;
-
-    return v;
+    int contour_count = ws->ncontours;
+    printf("==> contour count: %d\n", contour_count);
+    
+    multi_distance d;
+    d.r = -INFINITY;
+    d.g = -INFINITY;
+    d.b = -INFINITY;
+    
+    
+    int winding = 0;
+    
+    if (inner_d >= 0 && fabs(inner_d) <= fabs(outer_d)) {
+        d = inner_distance;
+        winding = 1;
+        for (int i = 0; i < contour_count; ++i) {
+            if (ws->edges[i].winding > 0) {
+                multi_distance contour_distance = get_distance(ws->edges[i].edge_selector);
+                if (fabs(resolve_multi_distance(contour_distance)) < fabs(outer_d)
+                        && resolve_multi_distance(contour_distance) > resolve_multi_distance(d))
+                    d = contour_distance;
+            }
+        }
+    } else if (outer_d <= 0 && fabs(outer_d) < fabs(inner_d)) {
+        d = outer_distance;
+        winding = -1;
+        for (int i = 0; i < contour_count; ++i) {
+            if (ws->edges[i].winding < 0) {
+                multi_distance contour_distance = get_distance(ws->edges[i].edge_selector);
+                if (fabs(resolve_multi_distance(contour_distance)) < fabs(inner_d)
+                        && resolve_multi_distance(contour_distance) > resolve_multi_distance(d))
+                    d = contour_distance;
+            }
+        }
+    } else {
+        return shape_distance;
+    }
+    
+    for (int i = 0; i < contour_count; ++i) {
+        if (ws->edges[i].winding != winding) {
+            multi_distance contour_distance = get_distance(ws->edges[i].edge_selector);
+            if (resolve_multi_distance(contour_distance) * resolve_multi_distance(d) >= 0
+                && fabs(resolve_multi_distance(contour_distance)) < fabs(resolve_multi_distance(d)))
+                d = contour_distance;
+        }
+    }
+    if (resolve_multi_distance(d) == resolve_multi_distance(shape_distance))
+        d = shape_distance;
+    return d;
 }

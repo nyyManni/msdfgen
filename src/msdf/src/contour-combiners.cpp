@@ -105,6 +105,7 @@ typename OverlappingContourCombiner<EdgeSelector>::DistanceType OverlappingConto
     DistanceType distance;
     initDistance(distance);
     int contourCount = (int) windings.size();
+    printf("--> contour count: %d\n", contourCount);
 
     int winding = 0;
     if (innerScalarDistance >= 0 && fabs(innerScalarDistance) <= fabs(outerScalarDistance)) {
@@ -113,7 +114,8 @@ typename OverlappingContourCombiner<EdgeSelector>::DistanceType OverlappingConto
         for (int i = 0; i < contourCount; ++i)
             if (windings[i] > 0) {
                 DistanceType contourDistance = edgeSelectors[i].distance();
-                if (fabs(resolveDistance(contourDistance)) < fabs(outerScalarDistance) && resolveDistance(contourDistance) > resolveDistance(distance))
+                if (fabs(resolveDistance(contourDistance)) < fabs(outerScalarDistance) 
+                    && resolveDistance(contourDistance) > resolveDistance(distance))
                     distance = contourDistance;
             }
     } else if (outerScalarDistance <= 0 && fabs(outerScalarDistance) < fabs(innerScalarDistance)) {
@@ -122,7 +124,8 @@ typename OverlappingContourCombiner<EdgeSelector>::DistanceType OverlappingConto
         for (int i = 0; i < contourCount; ++i)
             if (windings[i] < 0) {
                 DistanceType contourDistance = edgeSelectors[i].distance();
-                if (fabs(resolveDistance(contourDistance)) < fabs(innerScalarDistance) && resolveDistance(contourDistance) < resolveDistance(distance))
+                if (fabs(resolveDistance(contourDistance)) < fabs(innerScalarDistance) 
+                    && resolveDistance(contourDistance) < resolveDistance(distance))
                     distance = contourDistance;
             }
     } else
@@ -131,7 +134,8 @@ typename OverlappingContourCombiner<EdgeSelector>::DistanceType OverlappingConto
     for (int i = 0; i < contourCount; ++i)
         if (windings[i] != winding) {
             DistanceType contourDistance = edgeSelectors[i].distance();
-            if (resolveDistance(contourDistance)*resolveDistance(distance) >= 0 && fabs(resolveDistance(contourDistance)) < fabs(resolveDistance(distance)))
+            if (resolveDistance(contourDistance)*resolveDistance(distance) >= 0 
+                && fabs(resolveDistance(contourDistance)) < fabs(resolveDistance(distance)))
                 distance = contourDistance;
         }
     if (resolveDistance(distance) == resolveDistance(shapeDistance))
