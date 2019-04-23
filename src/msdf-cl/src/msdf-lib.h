@@ -1,9 +1,9 @@
 #ifndef MSDF_LIB_H
 #define MSDF_LIB_H
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 enum color {
     BLACK = 0,
@@ -23,65 +23,59 @@ typedef struct _vec2 {
     _vec2() : x(0), y(0) {}
     _vec2(float x, float y) : x(x), y(y) {}
 
-    bool operator!() {
-        return !x && !y;
-    }
-    bool operator==( struct _vec2 other)  {
-        return x == other.x && y == other.y;
-    }
+    bool operator!() { return !x && !y; }
+    bool operator==(struct _vec2 other) { return x == other.x && y == other.y; }
 
-    bool operator!=( struct _vec2 other)  {
-        return x != other.x || y != other.y;
-    }
+    bool operator!=(struct _vec2 other) { return x != other.x || y != other.y; }
 
-    struct _vec2 operator+()  {
+    struct _vec2 operator+() {
         return *this;
     }
 
-    struct _vec2 operator-()  {
+    struct _vec2 operator-() {
         return _vec2(-x, -y);
     }
 
-    struct _vec2 operator+( struct _vec2 other)  {
+    struct _vec2 operator+(struct _vec2 other) {
         return _vec2(x + other.x, y + other.y);
     }
 
-    struct _vec2 operator-( struct _vec2 other)  {
+    struct _vec2 operator-(struct _vec2 other) {
         return _vec2(x - other.x, y - other.y);
     }
 
-    struct _vec2 operator*( struct _vec2 other)  {
+    struct _vec2 operator*(struct _vec2 other) {
         return _vec2(x * other.x, y * other.y);
     }
 
-    struct _vec2 operator/( struct _vec2 other)  {
+    struct _vec2 operator/(struct _vec2 other) {
         return _vec2(x / other.x, y / other.y);
     }
 
-    struct _vec2 operator*(float value)  {
+    struct _vec2 operator*(float value) {
         return _vec2(x * value, y * value);
     }
 
-    struct _vec2 operator/(float value)  {
+    struct _vec2 operator/(float value) {
         return _vec2(x / value, y / value);
     }
 
-    struct _vec2 operator+=( struct _vec2 other) {
+    struct _vec2 operator+=(struct _vec2 other) {
         x += other.x, y += other.y;
         return *this;
     }
 
-    struct _vec2 operator-=( struct _vec2 other) {
+    struct _vec2 operator-=(struct _vec2 other) {
         x -= other.x, y -= other.y;
         return *this;
     }
 
-    struct _vec2 operator*=( struct _vec2 other) {
+    struct _vec2 operator*=(struct _vec2 other) {
         x *= other.x, y *= other.y;
         return *this;
     }
 
-    struct _vec2 operator/=( struct _vec2 other) {
+    struct _vec2 operator/=(struct _vec2 other) {
         x /= other.x, y /= other.y;
         return *this;
     }
@@ -97,11 +91,11 @@ typedef struct _vec2 {
     }
 
 } vec2;
-static inline struct _vec2 operator*(float value,  struct _vec2 vector) {
-    return _vec2(value*vector.x, value*vector.y);
+static inline struct _vec2 operator*(float value, struct _vec2 vector) {
+    return _vec2(value * vector.x, value * vector.y);
 }
-static inline struct _vec2 operator/(float value,  struct _vec2 vector) {
-    return _vec2(value/vector.x, value/vector.y);
+static inline struct _vec2 operator/(float value, struct _vec2 vector) {
+    return _vec2(value / vector.x, value / vector.y);
 }
 
 typedef struct _vec3 {
@@ -142,21 +136,24 @@ struct shape {
 
 #define NTH_CONTOUR(s, n)
 
-#define FOREACH_CONTOUR_BEGIN(s, c) do {                                                          \
-        int ___i, ___j;                                                                           \
-        contour *c = s->contours;                                                                 \
-        contour *___c = s->contours;                                                              \
-        segment *___s;                                                                            \
-        for (___i = 0, ___c = s->contours; ___i < s->ncontours; ++___i, ___c = (contour *)___s) { \
+#define FOREACH_CONTOUR_BEGIN(s, c)                                                      \
+    do {                                                                                 \
+        int ___i, ___j;                                                                  \
+        contour *c = s->contours;                                                        \
+        contour *___c = s->contours;                                                     \
+        segment *___s;                                                                   \
+        for (___i = 0, ___c = s->contours; ___i < s->ncontours;                          \
+             ++___i, ___c = (contour *)___s) {                                           \
             contour *c = ___c;
 
-#define FOREACH_CONTOUR_END()                                                               \
-            for (___j = 0, ___s = ___c->segments ;                                          \
-                     ___j < ___c->nsegments;                                                \
-                     ++___j, ___s = (segment *)(((vec2 *)(___s + 1)) + ___s->npoints)) {    \
-            }                                                                               \
-          }                                                                                 \
-      } while (0);
+#define FOREACH_CONTOUR_END()                                                            \
+    for (___j = 0, ___s = ___c->segments; ___j < ___c->nsegments;                        \
+         ++___j, ___s = (segment *)(((vec2 *)(___s + 1)) + ___s->npoints)) {             \
+    }                                                                                    \
+    }                                                                                    \
+    }                                                                                    \
+    while (0)                                                                            \
+        ;
 
 typedef vec2 distance_t;
 
@@ -166,12 +163,8 @@ struct multi_distance {
     float b;
 };
 
-static inline float min(float a, float b) {
-    return a < b ? a : b;
-}
-static inline float max(float a, float b) {
-    return a > b ? a : b;
-}
+static inline float min(float a, float b) { return a < b ? a : b; }
+static inline float max(float a, float b) { return a > b ? a : b; }
 
 static inline float median(float a, float b, float c) {
     return max(min(a, b), min(max(a, b), c));
@@ -185,46 +178,36 @@ distance_t signed_distance(segment *s, vec2 p, float *param);
 vec2 segment_direction(segment *e, float param);
 vec2 segment_point(segment *e, float param);
 void dump_segment(segment *s);
-static inline void dump_vec2(vec2 *vec) {
-    printf("vec2: %.2f, %.2f\n", vec->x, vec->y);
-}
+static inline void dump_vec2(vec2 *vec) { printf("vec2: %.2f, %.2f\n", vec->x, vec->y); }
 
-static inline float dotProduct( vec2 a,  vec2 b) {
-    return a.x*b.x+a.y*b.y;
-}
+static inline float dotProduct(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
 
-static inline float crossProduct( vec2 a,  vec2 b) {
-    return a.x*b.y-a.y*b.x;
-}
+static inline float crossProduct(vec2 a, vec2 b) { return a.x * b.y - a.y * b.x; }
 
-static inline float length( vec2 v) {
-    return sqrt(v.x*v.x+v.y*v.y);
-}
+static inline float length(vec2 v) { return sqrt(v.x * v.x + v.y * v.y); }
 
-static inline int nonZeroSign(float n) {
-    return 2*(n > float(0))-1;
-}
+static inline int nonZeroSign(float n) { return 2 * (n > float(0)) - 1; }
 
-static inline vec2 normalize(vec2 v/* , bool allowZero = false */) {
+static inline vec2 normalize(vec2 v /* , bool allowZero = false */) {
     float len = length(v);
     /* if (len == 0) */
     /*     return vec2(0, !allowZero); */
-    return vec2(v.x/len, v.y/len);
+    return vec2(v.x / len, v.y / len);
 }
 
 static inline vec2 getOrthogonal(vec2 v, bool polarity) {
     return polarity ? vec2(-v.y, v.x) : vec2(v.y, -v.x);
 }
 
-static inline vec2 getOrthonormal(vec2 v, bool polarity/* , bool allowZero = false */) {
+static inline vec2 getOrthonormal(vec2 v, bool polarity /* , bool allowZero = false */) {
     float len = length(v);
     /* if (len == 0) */
     /*     return polarity ? vec2(0, !allowZero) : vec2(0, -!allowZero); */
-    return polarity ? vec2(-v.y/len, v.x/len) : vec2(v.y/len, -v.x/len);
+    return polarity ? vec2(-v.y / len, v.x / len) : vec2(v.y / len, -v.x / len);
 }
 
 static inline vec2 mix(vec2 a, vec2 b, float weight) {
-    return vec2((float(1)-weight)*a+weight*b);
+    return vec2((float(1) - weight) * a + weight * b);
 }
 
 #endif /* MSDF_LIB_H */

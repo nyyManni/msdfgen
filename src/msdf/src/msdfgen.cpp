@@ -57,7 +57,6 @@ void generateDistanceField(Bitmap<typename DistancePixelConversion<typename Cont
                 for (std::vector<Contour>::const_iterator contour = shape.contours.begin(); 
                      contour != shape.contours.end(); ++contour) {
                     if (!contour->edges.empty()) {
-                        printf("--> creating edge selector\n");
                         typename ContourCombiner::EdgeSelectorType edgeSelector(p);
 
                         const EdgeSegment *prevEdge = contour->edges.size() >= 2 
@@ -67,13 +66,11 @@ void generateDistanceField(Bitmap<typename DistancePixelConversion<typename Cont
                              edge != contour->edges.end(); ++edge) {
                             const EdgeSegment *nextEdge = *edge;
                             
-                            printf("--> adding edge\n");
                             edgeSelector.addEdge(prevEdge, curEdge, nextEdge);
                             prevEdge = curEdge;
                             curEdge = nextEdge;
                         }
 
-                        printf("--> setting contour edge %d\n", int(contour-shape.contours.begin()));
                         contourCombiner.setContourEdge(int(contour-shape.contours.begin()), edgeSelector);
                     }
                 }

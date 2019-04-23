@@ -41,38 +41,21 @@ bool PseudoDistanceSelectorBase::pointFacingEdge(const EdgeSegment *prevEdge, co
 PseudoDistanceSelectorBase::PseudoDistanceSelectorBase() : nearEdge(NULL), nearEdgeParam(0) { }
 
 void PseudoDistanceSelectorBase::addEdgeTrueDistance(const EdgeSegment *edge, const SignedDistance &distance, double param) {
-    printf("--> adding true distance\n");
-    dump();
-    edge->dump();
     if (distance < minTrueDistance) {
         minTrueDistance = distance;
         nearEdge = edge;
         nearEdgeParam = param;
     }
-    
-    // static int debug = 20;
-    // if (debug > 0) {
-        // printf("min true: %.2f * %.2f (%.2f)\n", minTrueDistance.distance, minTrueDistance.dot, nearEdgeParam);
-    // }
-    // debug--;
-
 }
 
 void PseudoDistanceSelectorBase::addEdgePseudoDistance(const SignedDistance &distance) {
-    printf("--> adding pseudo distance\n");
     SignedDistance &minPseudoDistance = distance.distance < 0 ? minNegativePseudoDistance : minPositivePseudoDistance;
-    dump();
-    printf("--> min pseudo: %.2e, %.2f\n", minPseudoDistance.distance, minPseudoDistance.dot);
     if (distance < minPseudoDistance) {
-        printf("--> was less, changin (%.2e %.2f) to (%.2e, %.2f)\n",
-               minPseudoDistance.distance, minPseudoDistance.dot,
-               distance.distance, distance.dot);
         minPseudoDistance = distance;
     }
 }
 
 void PseudoDistanceSelectorBase::merge(const PseudoDistanceSelectorBase &other) {
-    printf("--> merging segment\n");
     if (other.minTrueDistance < minTrueDistance) {
         minTrueDistance = other.minTrueDistance;
         nearEdge = other.nearEdge;
@@ -81,9 +64,6 @@ void PseudoDistanceSelectorBase::merge(const PseudoDistanceSelectorBase &other) 
     if (other.minNegativePseudoDistance < minNegativePseudoDistance)
         minNegativePseudoDistance = other.minNegativePseudoDistance;
     if (other.minPositivePseudoDistance < minPositivePseudoDistance) {
-        // printf("--> (%.2e, %.2f) < (%.2e, %.2f)\n",
-               // other.minPositivePseudoDistance.distance, other.minPositivePseudoDistance.dot,
-               // minPositivePseudoDistance.distance, minPositivePseudoDistance.dot);
         minPositivePseudoDistance = other.minPositivePseudoDistance;
     }
 }
@@ -120,8 +100,6 @@ MultiDistanceSelector::MultiDistanceSelector(const Point2 &p) : p(p) { }
 void MultiDistanceSelector::addEdge(const EdgeSegment *prevEdge, const EdgeSegment *edge, const EdgeSegment *nextEdge) {
     double param;
     SignedDistance distance = edge->signedDistance(p, param);
-    // printf("signed distance: %.2f %.2f\n", distance.distance, distance.dot);
-    // printf("edge color: %i\n", edge->color);
 
     if (edge->color&RED)
         r.addEdgeTrueDistance(edge, distance, param);
@@ -133,18 +111,14 @@ void MultiDistanceSelector::addEdge(const EdgeSegment *prevEdge, const EdgeSegme
     if (PseudoDistanceSelector::pointFacingEdge(prevEdge, edge, nextEdge, p, param)) {
 
 
-        printf("--> d before: %.2e %.2f\n", distance.distance, distance.dot);
         edge->distanceToPseudoDistance(distance, p, param);
-        printf("--> d after:  %.2e %.2f\n", distance.distance, distance.dot);
 
-        edge->dump();
         if (edge->color&RED)
             r.addEdgePseudoDistance(distance);
         if (edge->color&GREEN)
             g.addEdgePseudoDistance(distance);
         if (edge->color&BLUE)
             b.addEdgePseudoDistance(distance);
-        dump();
     }
 }
 

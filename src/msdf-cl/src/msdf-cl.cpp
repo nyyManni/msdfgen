@@ -41,10 +41,9 @@ struct workspace {
     struct edge_selector inner;
     struct edge_selector outer;
 
-    multi_distance min_inner;
-    multi_distance min_outer;
-
-    multi_distance edge_distances[];
+    multi_distance max_inner;
+    multi_distance max_outer;
+    multi_distance min_absolute;
 };
 
 static inline vec3 to_pixel(multi_distance d, float range) {
@@ -76,9 +75,6 @@ bool greateq(distance_t a, distance_t b) {
 
 void add_segment_true_distance(struct pseudo_distance_selector_base *psdb,
                                segment *s, distance_t d, float param) {
-    printf("==> adding true distance\n");
-    dump_distance_selector(psdb);
-    dump_segment(s);
     if (less(d, psdb->min_true)) {
         psdb->min_true = d;
         psdb->near_edge = s;
@@ -86,13 +82,8 @@ void add_segment_true_distance(struct pseudo_distance_selector_base *psdb,
     }
 }
 void add_segment_pseudo_distance(struct pseudo_distance_selector_base *psdb, distance_t d) {
-    printf("==> adding pseudo distance\n");
-    dump_distance_selector(psdb);
     distance_t *min_pseudo = d.x < 0 ? &(psdb->min_negative) : &(psdb->min_positive);
-    printf("==> min pseudo: %.2e, %.2f\n", min_pseudo->x, min_pseudo->y);
     if (less(d, *min_pseudo)) {
-        printf("==> was less, changin (%.2e %.2f) to (%.2e, %.2f)\n",
-               min_pseudo->x, min_pseudo->y, d.x, d.y);
         *min_pseudo = d;
     }
 }
@@ -113,10 +104,7 @@ void dump_segment(segment *s) {
 
 
 void distance_to_pseudo_distance(segment *s, distance_t *d, vec2 p, float param) {
-    printf("==> p: (%.2f, %.2f)\n", p.x, p.y);
-    dump_segment(s);
     if (param < 0) {
-        // printf("larger than ")
         vec2 dir = normalize(segment_direction(s, 0));
         vec2 aq = p - segment_point(s, 0);
         float ts = dotProduct(aq, dir);
@@ -172,11 +160,11 @@ int main() {
     msdfgen::Shape shape;
     msdf_font_handle f = msdf_load_font("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
     msdfgen::FontHandle *font = (msdfgen::FontHandle *)f->__handle;
-    // msdfgen::loadGlyph(shape, font, '1');
 
-    msdfgen::loadGlyph(shape, font, 0x00e4);
+    // msdfgen::loadGlyph(shape, font, '1');
+    // msdfgen::loadGlyph(shape, font, 0x00e4);
     // msdfgen::loadGlyph(shape, font, '#');
-    // msdfgen::loadGlyph(shape, font, '0');
+    msdfgen::loadGlyph(shape, font, '0');
 
     shape.normalize();
     edgeColoringSimple(shape, 3.0);
@@ -199,12 +187,6 @@ int main() {
         + shape.contours.size() * (sizeof (edge_selector));
 
     struct workspace *ws = (struct workspace *)malloc(work_area_size);
-    ws->min_inner.r = -INFINITY;
-    ws->min_inner.g = -INFINITY;
-    ws->min_inner.b = -INFINITY;
-    ws->min_outer.r = -INFINITY;
-    ws->min_outer.g = -INFINITY;
-    ws->min_outer.b = -INFINITY;
 
     struct shape *glyph_data = (struct shape *)input_buffer;
     {
@@ -299,6 +281,19 @@ void calculate_pixel(struct shape *shape, vec3 *output, struct workspace *ws,
     vec2 p = vec2((x + 0.5f) / scale.x - translate.x,
                   (y + 0.5f) / scale.y - translate.y);
 
+    ws->max_inner.r = -INFINITY;
+    ws->max_inner.g = -INFINITY;
+    ws->max_inner.b = -INFINITY;
+    ws->max_outer.r = -INFINITY;
+    ws->max_outer.g = -INFINITY;
+    ws->max_outer.b = -INFINITY;
+    ws->min_absolute.r = -INFINITY;
+    ws->min_absolute.g = -INFINITY;
+    ws->min_absolute.b = -INFINITY;
+    // ws->min_negative_absolute.r = -INFINITY;
+    // ws->min_negative_absolute.g = -INFINITY;
+    // ws->min_negative_absolute.b = -INFINITY;
+
     init_edge_selector(&ws->shape, p);
     init_edge_selector(&ws->inner, p);
     init_edge_selector(&ws->outer, p);
@@ -310,7 +305,6 @@ void calculate_pixel(struct shape *shape, vec3 *output, struct workspace *ws,
             c += 1;
             continue;
         }
-        printf("==> creating edge selector\n");
         struct edge_selector *e = (struct edge_selector *)malloc(sizeof (struct edge_selector));
         init_edge_selector(e, p);
 
@@ -330,14 +324,12 @@ void calculate_pixel(struct shape *shape, vec3 *output, struct workspace *ws,
             NEXT_SEGMENT(prev)
 
         for (int _i = 0; _i < c->nsegments; ++_i) {
-            printf("==> adding edge\n");
             add_segment(e, prev, cur, s);
             prev = cur;
             cur = s;
             NEXT_SEGMENT(s);
         }
 
-        printf("==> setting contour edge %d\n", contour_idx);
         set_contour_edge(ws, contour_idx, e, c);
 
         /* s now points to the next contour structure (if any) */
@@ -365,23 +357,18 @@ void add_segment(struct edge_selector *e, segment *prev, segment *cur, segment *
 
     if (point_facing_edge(prev, cur, next, e->point, param)) {
 
-        printf("==> d before: %.2e %.2f\n", d.x, d.y);
         distance_to_pseudo_distance(cur, &d, e->point, param);
-        printf("==> d after:  %.2e %.2f\n", d.x, d.y);
-        dump_segment(cur);
         if (cur->color & RED)
             add_segment_pseudo_distance(&e->r, d);
         if (cur->color & GREEN)
             add_segment_pseudo_distance(&e->g, d);
         if (cur->color & BLUE)
             add_segment_pseudo_distance(&e->b, d);
-        dump_selector(e);
     }
 }
 float compute_distance(pseudo_distance_selector_base *b, vec2 point);
 
 void merge_segment(struct pseudo_distance_selector_base *s, struct pseudo_distance_selector_base *other) {
-    printf("==> merging segment\n");
     if (less(other->min_true, s->min_true)) {
         s->min_true = other->min_true;
         s->near_edge = other->near_edge;
@@ -410,17 +397,14 @@ multi_distance get_distance(edge_selector *e) {
 
 void set_contour_edge(struct workspace *ws, int i, struct edge_selector *e, contour *c) {
 
-    dump_selector(e);
-
     multi_distance d = get_distance(e);
-    printf("==> d: %.2f\n", resolve_multi_distance(d));
 
     merge_multi_segment(&ws->shape, e);
     if (c->winding > 0 && resolve_multi_distance(d) >= 0)
         merge_multi_segment(&ws->inner, e);
     if (c->winding < 0 && resolve_multi_distance(d) <= 0)
         merge_multi_segment(&ws->outer, e);
-    ws->edge_distances[i] = get_distance(e);
+    // ws->edge_distances[i] = get_distance(e);
     multi_distance edge_distance = get_distance(e);
 
     multi_distance shape_distance = get_distance(&ws->shape);
@@ -429,15 +413,14 @@ void set_contour_edge(struct workspace *ws, int i, struct edge_selector *e, cont
     float inner_d = resolve_multi_distance(inner_distance);
     float outer_d = resolve_multi_distance(outer_distance);
 
-    if (inner_d >=0 && fabs(inner_d) <= fabs(outer_d) && c->winding > 0) {
-        if (fabs(resolve_multi_distance(edge_distance) < fabs(outer_d))
-            && resolve_multi_distance(edge_distance) > resolve_multi_distance(ws->min_inner)) {
-            ws->min_inner = edge_distance;
-        }
-    }
-    if (c->winding < 0) {
+    multi_distance *target = c->winding < 0 ? &ws->max_inner : &ws->max_outer;
 
-    }
+    if (resolve_multi_distance(edge_distance) > resolve_multi_distance(*target))
+        *target = edge_distance;
+
+    target =  &ws->min_absolute ;
+    if (fabs(resolve_multi_distance(edge_distance)) < fabs(resolve_multi_distance(*target)))
+        *target = edge_distance;
 }
 
 float compute_distance(pseudo_distance_selector_base *b, vec2 point) {
@@ -457,33 +440,24 @@ multi_distance get_pixel_distance(struct workspace *ws, struct shape *shape) {
     multi_distance outer_distance = get_distance(&ws->outer);
     float inner_d = resolve_multi_distance(inner_distance);
     float outer_d = resolve_multi_distance(outer_distance);
-    printf("==> inner: %.2e, outer: %.2e\n", inner_d, outer_d);
 
     bool inner = inner_d >= 0 && fabs(inner_d) <= fabs(outer_d);
     bool outer = outer_d <= 0 && fabs(outer_d) < fabs(inner_d);
     if (!inner && !outer) return shape_distance;
 
     multi_distance d = inner ? inner_distance : outer_distance;
+    multi_distance contour_distance = inner ? ws->max_inner : ws->max_outer;
 
-    int i = 0;
-    FOREACH_CONTOUR_BEGIN(shape, c);
+    float contour_d = resolve_multi_distance(contour_distance);
+    if (fabs(contour_d) < fabs(outer_d) && contour_d > resolve_multi_distance(d))
+        d = contour_distance;
 
-        multi_distance contour_distance = ws->edge_distances[i++];
+    contour_distance = ws->min_absolute;
+    contour_d = resolve_multi_distance(contour_distance);
+    float d_d = resolve_multi_distance(d);
 
-        if (fabs(resolve_multi_distance(contour_distance)) < fabs(outer_d)
-                && resolve_multi_distance(contour_distance) > resolve_multi_distance(d))
-            d = contour_distance;
-    FOREACH_CONTOUR_END();
-
-    i = 0;
-    FOREACH_CONTOUR_BEGIN(shape, c);
-
-        multi_distance contour_distance = ws->edge_distances[i++];
-
-        if (resolve_multi_distance(contour_distance) * resolve_multi_distance(d) >= 0
-            && fabs(resolve_multi_distance(contour_distance)) < fabs(resolve_multi_distance(d)))
-            d = contour_distance;
-    FOREACH_CONTOUR_END();
+    if (fabs(contour_d) < fabs(d_d))
+        d = contour_distance;
 
     if (resolve_multi_distance(d) == resolve_multi_distance(shape_distance))
         d = shape_distance;
