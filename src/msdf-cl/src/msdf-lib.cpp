@@ -81,9 +81,6 @@ distance_t signed_distance(segment *s, vec2 p, float *param) {
 }
 
 distance_t signed_distance_linear(segment *s, vec2 origin, float *param) {
-    // dump_segment(s);
-    // printf("param: %.2f\n", *param);
-    // dump_vec2(&origin);
     vec2 aq = origin - s->points[0];
     vec2 ab = s->points[1] - s->points[0];
     *param = dotProduct(aq, ab) / dotProduct(ab, ab);
@@ -97,6 +94,7 @@ distance_t signed_distance_linear(segment *s, vec2 origin, float *param) {
     return distance_t(nonZeroSign(crossProduct(aq, ab)) * endpointDistance,
                       fabs(dotProduct(normalize(ab), normalize(eq))));
 }
+
 
 distance_t signed_distance_quad(segment *s, vec2 origin, float *param) {
     vec2 qa = s->points[0] - origin;

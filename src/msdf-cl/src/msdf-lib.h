@@ -125,7 +125,7 @@ typedef struct _segment {
     vec2 points[];
 } segment;
 
-/* Iterating over segments has to be done manually because the size of the 
+/* Iterating over segments has to be done manually because the size of the
    struct is not ant. */
 #define NEXT_SEGMENT(s) s = (segment *)(((vec2 *)(s + 1)) + s->npoints);
 
@@ -140,10 +140,24 @@ struct shape {
     contour contours[];
 };
 
-/* typedef struct _distance { */
-/*     float distance; */
-/*     float dot; */
-/* } distance_t; */
+#define NTH_CONTOUR(s, n)
+
+#define FOREACH_CONTOUR_BEGIN(s, c) do {                                                          \
+        int ___i, ___j;                                                                           \
+        contour *c = s->contours;                                                                 \
+        contour *___c = s->contours;                                                              \
+        segment *___s;                                                                            \
+        for (___i = 0, ___c = s->contours; ___i < s->ncontours; ++___i, ___c = (contour *)___s) { \
+            contour *c = ___c;
+
+#define FOREACH_CONTOUR_END()                                                               \
+            for (___j = 0, ___s = ___c->segments ;                                          \
+                     ___j < ___c->nsegments;                                                \
+                     ++___j, ___s = (segment *)(((vec2 *)(___s + 1)) + ___s->npoints)) {    \
+            }                                                                               \
+          }                                                                                 \
+      } while (0);
+
 typedef vec2 distance_t;
 
 struct multi_distance {
@@ -191,10 +205,10 @@ static inline int nonZeroSign(float n) {
     return 2*(n > float(0))-1;
 }
 
-static inline vec2 normalize(vec2 v, bool allowZero = false) {
+static inline vec2 normalize(vec2 v/* , bool allowZero = false */) {
     float len = length(v);
-    if (len == 0)
-        return vec2(0, !allowZero);
+    /* if (len == 0) */
+    /*     return vec2(0, !allowZero); */
     return vec2(v.x/len, v.y/len);
 }
 
@@ -202,14 +216,13 @@ static inline vec2 getOrthogonal(vec2 v, bool polarity) {
     return polarity ? vec2(-v.y, v.x) : vec2(v.y, -v.x);
 }
 
-static inline vec2 getOrthonormal(vec2 v, bool polarity, bool allowZero = false) {
+static inline vec2 getOrthonormal(vec2 v, bool polarity/* , bool allowZero = false */) {
     float len = length(v);
-    if (len == 0)
-        return polarity ? vec2(0, !allowZero) : vec2(0, -!allowZero);
+    /* if (len == 0) */
+    /*     return polarity ? vec2(0, !allowZero) : vec2(0, -!allowZero); */
     return polarity ? vec2(-v.y/len, v.x/len) : vec2(v.y/len, -v.x/len);
 }
 
-/* template <typename T, typename S> */
 static inline vec2 mix(vec2 a, vec2 b, float weight) {
     return vec2((float(1)-weight)*a+weight*b);
 }
