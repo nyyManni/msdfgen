@@ -179,8 +179,6 @@ static inline float resolve_multi_distance(multi_distance d) {
 distance_t signed_distance(segment *s, vec2 p, float *param);
 vec2 segment_direction(segment *e, float param);
 vec2 segment_point(segment *e, float param);
-void dump_segment(segment *s);
-static inline void dump_vec2(vec2 *vec) { printf("vec2: %.2f, %.2f\n", vec->x, vec->y); }
 
 static inline float dotProduct(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
 
