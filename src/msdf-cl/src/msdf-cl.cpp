@@ -22,18 +22,32 @@ struct edge_selector {
     pseudo_distance_selector_base r, g, b;
 };
 
-void dump_distance_selector(struct pseudo_distance_selector_base * p) {
+static inline void dump_distance_selector(struct pseudo_distance_selector_base * p) {
     printf("==> distances true: (%.2e, %.2f), negative: (%.2e, %.2f), positive: (%.2e, %.2f)\n",
            p->min_true.x, p->min_true.y, p->min_negative.x, p->min_negative.y,
            p->min_positive.x, p->min_positive.y);
     printf("==> near_edge %p (%.2f)\n", p->near_edge, p->near_edge_param);
 }
 
-void dump_selector(struct edge_selector *e) {
+static inline void dump_selector(struct edge_selector *e) {
     printf("==> point: (%.2f, %.2f)\n", e->point.x, e->point.y);
     dump_distance_selector(&e->r);
     dump_distance_selector(&e->g);
     dump_distance_selector(&e->b);
+}
+
+void dump_segment(segment *s) {
+    if (s->npoints == 2)
+        printf("==> linear segment (%i): (%.2f, %.2f), (%.2f, %.2f)\n",
+               s->color, s->points[0].x, s->points[0].y, s->points[1].x, s->points[1].y);
+
+    if (s->npoints == 3)
+        printf("==> quad   segment (%i): (%.2f, %.2f), (%.2f, %.2f), (%.2f, %.2f)\n",
+               s->color, s->points[0].x, s->points[0].y, s->points[1].x, s->points[1].y, s->points[2].x, s->points[2].y);
+
+    if (s->npoints == 4)
+        printf("==> cubic  segment (%i): (%.2f, %.2f), (%.2f, %.2f), (%.2f, %.2f), (%.2f, %.2f)\n",
+               s->color, s->points[0].x, s->points[0].y, s->points[1].x, s->points[1].y, s->points[2].x, s->points[2].y, s->points[3].x, s->points[3].y);
 }
 
 struct workspace {
@@ -47,11 +61,9 @@ struct workspace {
 };
 
 static inline vec3 to_pixel(multi_distance d, float range) {
-    vec3 p;
-    p.r = d.r / range + 0.5f;
-    p.g = d.g / range + 0.5f;
-    p.b = d.b / range + 0.5f;
-    return p;
+    return vec3(d.r / range + 0.5f,
+                d.g / range + 0.5f,
+                d.b / range + 0.5f);
 }
 
 void add_segment(struct edge_selector *, segment *, segment *, segment *);
@@ -88,19 +100,6 @@ void add_segment_pseudo_distance(struct pseudo_distance_selector_base *psdb, dis
     }
 }
 
-void dump_segment(segment *s) {
-    if (s->npoints == 2)
-        printf("==> linear segment (%i): (%.2f, %.2f), (%.2f, %.2f)\n",
-               s->color, s->points[0].x, s->points[0].y, s->points[1].x, s->points[1].y);
-
-    if (s->npoints == 3)
-        printf("==> quad   segment (%i): (%.2f, %.2f), (%.2f, %.2f), (%.2f, %.2f)\n",
-               s->color, s->points[0].x, s->points[0].y, s->points[1].x, s->points[1].y, s->points[2].x, s->points[2].y);
-
-    if (s->npoints == 4)
-        printf("==> cubic  segment (%i): (%.2f, %.2f), (%.2f, %.2f), (%.2f, %.2f), (%.2f, %.2f)\n",
-               s->color, s->points[0].x, s->points[0].y, s->points[1].x, s->points[1].y, s->points[2].x, s->points[2].y, s->points[3].x, s->points[3].y);
-}
 
 
 void distance_to_pseudo_distance(segment *s, distance_t *d, vec2 p, float param) {
@@ -150,10 +149,7 @@ multi_distance get_pixel_distance(struct workspace *ws, struct shape *shape);
 void calculate_pixel(struct shape *, vec3 *, struct workspace *, int, int, int, vec2, vec2, float);
 
 static inline vec2 Point2_to_vec2(msdfgen::Point2 p) {
-    vec2 p_;
-    p_.x = p.x;
-    p_.y = p.y;
-    return p_;
+    return vec2(p.x, p.y);
 }
 int main() {
 
@@ -183,10 +179,8 @@ int main() {
         }
     }
     void * input_buffer = malloc(input_size);
-    size_t work_area_size = sizeof (struct workspace)
-        + shape.contours.size() * (sizeof (edge_selector));
 
-    struct workspace *ws = (struct workspace *)malloc(work_area_size);
+    struct workspace *ws = (struct workspace *)malloc(sizeof (struct workspace));
 
     struct shape *glyph_data = (struct shape *)input_buffer;
     {
@@ -290,9 +284,6 @@ void calculate_pixel(struct shape *shape, vec3 *output, struct workspace *ws,
     ws->min_absolute.r = -INFINITY;
     ws->min_absolute.g = -INFINITY;
     ws->min_absolute.b = -INFINITY;
-    // ws->min_negative_absolute.r = -INFINITY;
-    // ws->min_negative_absolute.g = -INFINITY;
-    // ws->min_negative_absolute.b = -INFINITY;
 
     init_edge_selector(&ws->shape, p);
     init_edge_selector(&ws->inner, p);

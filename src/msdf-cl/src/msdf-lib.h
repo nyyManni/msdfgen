@@ -99,6 +99,8 @@ static inline struct _vec2 operator/(float value, struct _vec2 vector) {
 }
 
 typedef struct _vec3 {
+    _vec3() : x(0), y(0), z(0) {}
+    _vec3(float x, float y, float z) : x(x), y(y), z(z) {}
     union {
         float x;
         float r;
