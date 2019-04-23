@@ -1,15 +1,14 @@
-#include <stdlib.h>
-#include <Shape.h>
-#include <msdf.h>
 #include "msdf-lib.h"
-#include <import-font.h>
-#include <edge-coloring.h>
-#include <edge-segments.h>
 #include "msdf.h"
 #include "msdfgen-ext.h"
 #include "msdfgen.h"
 #include <Contour.h>
-
+#include <Shape.h>
+#include <edge-coloring.h>
+#include <edge-segments.h>
+#include <import-font.h>
+#include <msdf.h>
+#include <stdlib.h>
 
 struct pseudo_distance_selector_base {
     distance_t min_true, min_negative, min_positive;
@@ -33,9 +32,7 @@ struct workspace {
 };
 
 static inline vec3 to_pixel(multi_distance d, float range) {
-    return vec3(d.r / range + 0.5f,
-                d.g / range + 0.5f,
-                d.b / range + 0.5f);
+    return vec3(d.r / range + 0.5f, d.g / range + 0.5f, d.b / range + 0.5f);
 }
 
 void add_segment(struct edge_selector *, segment *, segment *, segment *);
@@ -45,8 +42,8 @@ bool less(distance_t a, distance_t b) {
     return fabs(a.x) < fabs(b.x) || (fabs(a.x) == fabs(b.x) && a.y < b.y);
 }
 
-void add_segment_true_distance(struct pseudo_distance_selector_base *psdb,
-                               segment *s, distance_t d, float param) {
+void add_segment_true_distance(struct pseudo_distance_selector_base *psdb, segment *s,
+                               distance_t d, float param) {
     if (less(d, psdb->min_true)) {
         psdb->min_true = d;
         psdb->near_edge = s;
@@ -54,7 +51,8 @@ void add_segment_true_distance(struct pseudo_distance_selector_base *psdb,
     }
 }
 
-void add_segment_pseudo_distance(struct pseudo_distance_selector_base *psdb, distance_t d) {
+void add_segment_pseudo_distance(struct pseudo_distance_selector_base *psdb,
+                                 distance_t d) {
     distance_t *min_pseudo = d.x < 0 ? &(psdb->min_negative) : &(psdb->min_positive);
     if (less(d, *min_pseudo)) {
         *min_pseudo = d;
@@ -62,13 +60,14 @@ void add_segment_pseudo_distance(struct pseudo_distance_selector_base *psdb, dis
 }
 
 void distance_to_pseudo_distance(segment *s, distance_t *d, vec2 p, float param) {
-    if (param >= 0 && param <= 1) return;
-    
+    if (param >= 0 && param <= 1)
+        return;
+
     vec2 dir = normalize(segment_direction(s, param < 0 ? 0 : 1));
     vec2 aq = p - segment_point(s, param < 0 ? 0 : 1);
-    float ts = dotProduct(aq, dir);
+    float ts = dot(aq, dir);
     if (param < 0 ? ts < 0 : ts > 0) {
-        float pseudo_distance = crossProduct(aq, dir);
+        float pseudo_distance = cross_(aq, dir);
         if (fabs(pseudo_distance) <= fabs(d->x)) {
             d->x = pseudo_distance;
             d->y = 0;
@@ -77,50 +76,52 @@ void distance_to_pseudo_distance(segment *s, distance_t *d, vec2 p, float param)
 }
 
 bool point_facing_edge(segment *prev, segment *cur, segment *next, vec2 p, float param) {
-    if (param >= 0 && param <= 1) return true;
+    if (param >= 0 && param <= 1)
+        return true;
     vec2 prev_edge_dir = -normalize(segment_direction(prev, 1));
-    vec2 edge_dir = normalize(segment_direction(cur, param < 0 ? 0 : 1)) * (param < 0 ? 1 : -1);
+    vec2 edge_dir =
+        normalize(segment_direction(cur, param < 0 ? 0 : 1)) * (param < 0 ? 1 : -1);
     vec2 next_edge_dir = normalize(segment_direction(next, 0));
     vec2 point_dir = p - segment_point(cur, param < 0 ? 0 : 1);
-    return dotProduct(point_dir, edge_dir) >= dotProduct(point_dir, param < 0 ? prev_edge_dir : next_edge_dir);
+    return dot(point_dir, edge_dir) >=
+           dot(point_dir, param < 0 ? prev_edge_dir : next_edge_dir);
 }
 
 multi_distance get_pixel_distance(struct workspace *ws, struct shape *shape);
 
 void calculate_pixel(struct shape *, vec3 *, int, int, int, vec2, vec2, float);
 
-static inline vec2 Point2_to_vec2(msdfgen::Point2 p) {
-    return vec2(p.x, p.y);
-}
+static inline vec2 Point2_to_vec2(msdfgen::Point2 p) { return vec2(p.x, p.y); }
 int main() {
 
     msdfgen::Shape shape;
-    msdf_font_handle f = msdf_load_font("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
+    msdf_font_handle f =
+        msdf_load_font("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
     msdfgen::FontHandle *font = (msdfgen::FontHandle *)f->__handle;
 
     // msdfgen::loadGlyph(shape, font, '1');
-    // msdfgen::loadGlyph(shape, font, 0x00e4);
+    msdfgen::loadGlyph(shape, font, 0x00e4);
     // msdfgen::loadGlyph(shape, font, '#');
-    msdfgen::loadGlyph(shape, font, '0');
+    // msdfgen::loadGlyph(shape, font, '0');
+    // msdfgen::loadGlyph(shape, font, ' ');
 
     shape.normalize();
     edgeColoringSimple(shape, 3.0);
 
-    size_t input_size = sizeof (struct shape);
+    size_t input_size = sizeof(struct shape);
     for (msdfgen::Contour &c : shape.contours) {
-        input_size += sizeof (contour);
+        input_size += sizeof(contour);
         for (msdfgen::EdgeHolder &e : c.edges) {
-            input_size += sizeof (segment);
+            input_size += sizeof(segment);
             if (dynamic_cast<msdfgen::LinearSegment *>(e.edgeSegment))
-                input_size += 2 * sizeof (vec2);
+                input_size += 2 * sizeof(vec2);
             if (dynamic_cast<msdfgen::QuadraticSegment *>(e.edgeSegment))
-                input_size += 3 * sizeof (vec2);
+                input_size += 3 * sizeof(vec2);
             if (dynamic_cast<msdfgen::CubicSegment *>(e.edgeSegment))
-                input_size += 4 * sizeof (vec2);
+                input_size += 4 * sizeof(vec2);
         }
     }
-    void * input_buffer = malloc(input_size);
-
+    void *input_buffer = malloc(input_size);
 
     struct shape *glyph_data = (struct shape *)input_buffer;
     {
@@ -136,12 +137,14 @@ int main() {
                     s->npoints = 2;
                     s->points[0] = Point2_to_vec2(p->p[0]);
                     s->points[1] = Point2_to_vec2(p->p[1]);
-                } else if (auto p = dynamic_cast<msdfgen::QuadraticSegment *>(_e.edgeSegment)) {
+                } else if (auto p = dynamic_cast<msdfgen::QuadraticSegment *>(
+                               _e.edgeSegment)) {
                     s->npoints = 3;
                     s->points[0] = Point2_to_vec2(p->p[0]);
                     s->points[1] = Point2_to_vec2(p->p[1]);
                     s->points[2] = Point2_to_vec2(p->p[2]);
-                } else if (auto p = dynamic_cast<msdfgen::CubicSegment *>(_e.edgeSegment)) {
+                } else if (auto p =
+                               dynamic_cast<msdfgen::CubicSegment *>(_e.edgeSegment)) {
                     s->npoints = 4;
                     s->points[0] = Point2_to_vec2(p->p[0]);
                     s->points[1] = Point2_to_vec2(p->p[1]);
@@ -166,8 +169,8 @@ int main() {
     int h = ceil((height + range) * scale.x);
 
     msdfgen::Bitmap<msdfgen::FloatRGB> msdf(w, h);
-    msdfgen::generateMSDF(msdf, shape, range, 1.0,
-                          msdfgen::Vector2(0.0, 0.0), 1.001, true);
+    msdfgen::generateMSDF(msdf, shape, range, 1.0, msdfgen::Vector2(0.0, 0.0), 1.001,
+                          true);
 
     vec3 *output = (vec3 *)malloc(h * w * sizeof(vec3));
 
@@ -208,10 +211,9 @@ void init_edge_selector(struct edge_selector *e, vec2 p) {
     e->b.min_positive.y = 1;
 }
 
-void calculate_pixel(struct shape *shape, vec3 *output,
-                     int x, int y, int stride, vec2 scale, vec2 translate, float range) {
-    vec2 p = vec2((x + 0.5f) / scale.x - translate.x,
-                  (y + 0.5f) / scale.y - translate.y);
+void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride,
+                     vec2 scale, vec2 translate, float range) {
+    vec2 p = vec2((x + 0.5f) / scale.x - translate.x, (y + 0.5f) / scale.y - translate.y);
 
     struct workspace ws;
     ws.max_inner.r = -INFINITY;
@@ -227,7 +229,7 @@ void calculate_pixel(struct shape *shape, vec3 *output,
     init_edge_selector(&ws.shape, p);
     init_edge_selector(&ws.inner, p);
     init_edge_selector(&ws.outer, p);
-    
+
     struct edge_selector e;
 
     contour *c = shape->contours;
@@ -271,7 +273,6 @@ void calculate_pixel(struct shape *shape, vec3 *output,
     vec3 pixel = to_pixel(d, range);
     printf("==> PIXEL: %.2f %.2f %.2f\n", pixel.r, pixel.g, pixel.b);
     output[y * stride + x] = pixel;
-
 }
 
 void add_segment(struct edge_selector *e, segment *prev, segment *cur, segment *next) {
@@ -299,7 +300,8 @@ void add_segment(struct edge_selector *e, segment *prev, segment *cur, segment *
 }
 float compute_distance(pseudo_distance_selector_base *b, vec2 point);
 
-void merge_segment(struct pseudo_distance_selector_base *s, struct pseudo_distance_selector_base *other) {
+void merge_segment(struct pseudo_distance_selector_base *s,
+                   struct pseudo_distance_selector_base *other) {
     if (less(other->min_true, s->min_true)) {
         s->min_true = other->min_true;
         s->near_edge = other->near_edge;
@@ -335,31 +337,22 @@ void set_contour_edge(struct workspace *ws, int i, struct edge_selector *e, cont
         merge_multi_segment(&ws->inner, e);
     if (c->winding < 0 && resolve_multi_distance(d) <= 0)
         merge_multi_segment(&ws->outer, e);
-    multi_distance edge_distance = get_distance(e);
-
-    multi_distance shape_distance = get_distance(&ws->shape);
-    multi_distance inner_distance = get_distance(&ws->inner);
-    multi_distance outer_distance = get_distance(&ws->outer);
-    float inner_d = resolve_multi_distance(inner_distance);
-    float outer_d = resolve_multi_distance(outer_distance);
 
     multi_distance *target = c->winding < 0 ? &ws->max_inner : &ws->max_outer;
 
-    if (resolve_multi_distance(edge_distance) > resolve_multi_distance(*target))
-        *target = edge_distance;
+    if (resolve_multi_distance(d) > resolve_multi_distance(*target))
+        *target = d;
 
-    if (fabs(resolve_multi_distance(edge_distance)) < fabs(resolve_multi_distance(ws->min_absolute)))
-        ws->min_absolute = edge_distance;
+    if (fabs(resolve_multi_distance(d)) < fabs(resolve_multi_distance(ws->min_absolute)))
+        ws->min_absolute = d;
 }
 
 float compute_distance(pseudo_distance_selector_base *b, vec2 point) {
     float min_distance = b->min_true.x < 0 ? b->min_negative.x : b->min_positive.x;
-    if (b->near_edge) {
-        distance_t d = b->min_true;
-        distance_to_pseudo_distance(b->near_edge, &d, point, b->near_edge_param);
-        if (fabs(d.x) < fabs(min_distance))
-            min_distance = d.x;
-    }
+    distance_t d = b->min_true;
+    distance_to_pseudo_distance(b->near_edge, &d, point, b->near_edge_param);
+    if (fabs(d.x) < fabs(min_distance))
+        min_distance = d.x;
     return min_distance;
 }
 
@@ -372,7 +365,8 @@ multi_distance get_pixel_distance(struct workspace *ws, struct shape *shape) {
 
     bool inner = inner_d >= 0 && fabs(inner_d) <= fabs(outer_d);
     bool outer = outer_d <= 0 && fabs(outer_d) < fabs(inner_d);
-    if (!inner && !outer) return shape_distance;
+    if (!inner && !outer)
+        return shape_distance;
 
     multi_distance d = inner ? inner_distance : outer_distance;
     multi_distance contour_distance = inner ? ws->max_inner : ws->max_outer;

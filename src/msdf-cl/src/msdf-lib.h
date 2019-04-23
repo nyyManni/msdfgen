@@ -180,29 +180,22 @@ distance_t signed_distance(segment *s, vec2 p, float *param);
 vec2 segment_direction(segment *e, float param);
 vec2 segment_point(segment *e, float param);
 
-static inline float dotProduct(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
+static inline float dot(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
 
-static inline float crossProduct(vec2 a, vec2 b) { return a.x * b.y - a.y * b.x; }
+static inline float cross_(vec2 a, vec2 b) { return a.x * b.y - a.y * b.x; }
 
 static inline float length(vec2 v) { return sqrt(v.x * v.x + v.y * v.y); }
 
-static inline int nonZeroSign(float n) { return 2 * (n > float(0)) - 1; }
+/* static inline int sign(float n) { return 2 * (n > float(0)) - 1; } */
+static inline int sign(float n) { return 2 * (n > float(0)) - 1; }
 
-static inline vec2 normalize(vec2 v /* , bool allowZero = false */) {
+static inline vec2 normalize(vec2 v) {
     float len = length(v);
-    /* if (len == 0) */
-    /*     return vec2(0, !allowZero); */
     return vec2(v.x / len, v.y / len);
 }
 
-static inline vec2 getOrthogonal(vec2 v, bool polarity) {
-    return polarity ? vec2(-v.y, v.x) : vec2(v.y, -v.x);
-}
-
-static inline vec2 getOrthonormal(vec2 v, bool polarity /* , bool allowZero = false */) {
+static inline vec2 orthonormal(vec2 v, bool polarity /* , bool allowZero = false */) {
     float len = length(v);
-    /* if (len == 0) */
-    /*     return polarity ? vec2(0, !allowZero) : vec2(0, -!allowZero); */
     return polarity ? vec2(-v.y / len, v.x / len) : vec2(v.y / len, -v.x / len);
 }
 
