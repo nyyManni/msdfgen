@@ -10,15 +10,15 @@
 #include <msdf.h>
 #include <stdlib.h>
 
-struct pseudo_distance_selector_base {
+struct distance_selector {
     distance_t min_true, min_negative, min_positive;
     float near_edge_param;
     segment *near_edge;
 };
 
 struct edge_selector {
-    vec2 point;
-    pseudo_distance_selector_base r, g, b;
+// vec2 point;
+    distance_selector r, g, b;
 };
 
 struct workspace {
@@ -35,14 +35,14 @@ static inline vec3 to_pixel(multi_distance d, float range) {
     return vec3(d.r / range + 0.5f, d.g / range + 0.5f, d.b / range + 0.5f);
 }
 
-void add_segment(struct edge_selector *, segment *, segment *, segment *);
-void set_contour_edge(struct workspace *, int, struct edge_selector *, contour *);
+void add_segment(struct edge_selector *, segment *, segment *, segment *, vec2);
+void set_contour_edge(struct workspace *, struct edge_selector *, contour *, vec2);
 
 bool less(distance_t a, distance_t b) {
     return fabs(a.x) < fabs(b.x) || (fabs(a.x) == fabs(b.x) && a.y < b.y);
 }
 
-void add_segment_true_distance(struct pseudo_distance_selector_base *psdb, segment *s,
+void add_segment_true_distance(struct distance_selector *psdb, segment *s,
                                distance_t d, float param) {
     if (less(d, psdb->min_true)) {
         psdb->min_true = d;
@@ -51,7 +51,7 @@ void add_segment_true_distance(struct pseudo_distance_selector_base *psdb, segme
     }
 }
 
-void add_segment_pseudo_distance(struct pseudo_distance_selector_base *psdb,
+void add_segment_pseudo_distance(struct distance_selector *psdb,
                                  distance_t d) {
     distance_t *min_pseudo = d.x < 0 ? &(psdb->min_negative) : &(psdb->min_positive);
     if (less(d, *min_pseudo)) {
@@ -83,15 +83,15 @@ bool point_facing_edge(segment *prev, segment *cur, segment *next, vec2 p, float
         normalize(segment_direction(cur, param < 0 ? 0 : 1)) * (param < 0 ? 1 : -1);
     vec2 next_edge_dir = normalize(segment_direction(next, 0));
     vec2 point_dir = p - segment_point(cur, param < 0 ? 0 : 1);
-    return dot(point_dir, edge_dir) >=
-           dot(point_dir, param < 0 ? prev_edge_dir : next_edge_dir);
+    return dot(point_dir, edge_dir) >= dot(point_dir, param < 0 ? prev_edge_dir : next_edge_dir);
 }
 
-multi_distance get_pixel_distance(struct workspace *ws, struct shape *shape);
+multi_distance get_pixel_distance(struct workspace *ws, struct shape *shape, vec2 point);
 
 void calculate_pixel(struct shape *, vec3 *, int, int, int, vec2, vec2, float);
 
 static inline vec2 Point2_to_vec2(msdfgen::Point2 p) { return vec2(p.x, p.y); }
+
 int main() {
 
     msdfgen::Shape shape;
@@ -183,8 +183,8 @@ int main() {
     return 0;
 }
 void init_edge_selector(struct edge_selector *e, vec2 p) {
-    e->point.x = p.x;
-    e->point.y = p.y;
+    // e->point.x = p.x;
+    // e->point.y = p.y;
     e->r.near_edge = NULL;
     e->g.near_edge = NULL;
     e->b.near_edge = NULL;
@@ -233,7 +233,7 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
     struct edge_selector e;
 
     contour *c = shape->contours;
-    for (int contour_idx = 0; contour_idx < shape->ncontours; ++contour_idx) {
+    for (int _i = 0; _i < shape->ncontours; ++_i) {
 
         if (!c->nsegments) {
             c += 1;
@@ -257,28 +257,28 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
             NEXT_SEGMENT(prev)
 
         for (int _i = 0; _i < c->nsegments; ++_i) {
-            add_segment(&e, prev, cur, s);
+            add_segment(&e, prev, cur, s, p);
             prev = cur;
             cur = s;
             NEXT_SEGMENT(s);
         }
 
-        set_contour_edge(&ws, contour_idx, &e, c);
+        set_contour_edge(&ws, &e, c, p);
 
         /* s now points to the next contour structure (if any) */
         c = (contour *)s;
     }
 
-    multi_distance d = get_pixel_distance(&ws, shape);
+    multi_distance d = get_pixel_distance(&ws, shape, p);
     vec3 pixel = to_pixel(d, range);
     printf("==> PIXEL: %.2f %.2f %.2f\n", pixel.r, pixel.g, pixel.b);
     output[y * stride + x] = pixel;
 }
 
-void add_segment(struct edge_selector *e, segment *prev, segment *cur, segment *next) {
+void add_segment(struct edge_selector *e, segment *prev, segment *cur, segment *next, vec2 point) {
     float param;
 
-    distance_t d = signed_distance(cur, e->point, &param);
+    distance_t d = signed_distance(cur, point, &param);
 
     if (cur->color & RED)
         add_segment_true_distance(&e->r, cur, d, param);
@@ -287,9 +287,9 @@ void add_segment(struct edge_selector *e, segment *prev, segment *cur, segment *
     if (cur->color & BLUE)
         add_segment_true_distance(&e->b, cur, d, param);
 
-    if (point_facing_edge(prev, cur, next, e->point, param)) {
+    if (point_facing_edge(prev, cur, next, point, param)) {
 
-        distance_to_pseudo_distance(cur, &d, e->point, param);
+        distance_to_pseudo_distance(cur, &d, point, param);
         if (cur->color & RED)
             add_segment_pseudo_distance(&e->r, d);
         if (cur->color & GREEN)
@@ -298,10 +298,10 @@ void add_segment(struct edge_selector *e, segment *prev, segment *cur, segment *
             add_segment_pseudo_distance(&e->b, d);
     }
 }
-float compute_distance(pseudo_distance_selector_base *b, vec2 point);
+float compute_distance(distance_selector *b, vec2 point);
 
-void merge_segment(struct pseudo_distance_selector_base *s,
-                   struct pseudo_distance_selector_base *other) {
+void merge_segment(struct distance_selector *s,
+                   struct distance_selector *other) {
     if (less(other->min_true, s->min_true)) {
         s->min_true = other->min_true;
         s->near_edge = other->near_edge;
@@ -320,17 +320,17 @@ void merge_multi_segment(struct edge_selector *e, struct edge_selector *other) {
     merge_segment(&e->b, &other->b);
 }
 
-multi_distance get_distance(edge_selector *e) {
+multi_distance get_distance(edge_selector *e, vec2 point) {
     multi_distance d;
-    d.r = compute_distance(&e->r, e->point);
-    d.g = compute_distance(&e->g, e->point);
-    d.b = compute_distance(&e->b, e->point);
+    d.r = compute_distance(&e->r, point);
+    d.g = compute_distance(&e->g, point);
+    d.b = compute_distance(&e->b, point);
     return d;
 }
 
-void set_contour_edge(struct workspace *ws, int i, struct edge_selector *e, contour *c) {
+void set_contour_edge(struct workspace *ws, struct edge_selector *e, contour *c, vec2 point) {
 
-    multi_distance d = get_distance(e);
+    multi_distance d = get_distance(e, point);
 
     merge_multi_segment(&ws->shape, e);
     if (c->winding > 0 && resolve_multi_distance(d) >= 0)
@@ -347,7 +347,7 @@ void set_contour_edge(struct workspace *ws, int i, struct edge_selector *e, cont
         ws->min_absolute = d;
 }
 
-float compute_distance(pseudo_distance_selector_base *b, vec2 point) {
+float compute_distance(distance_selector *b, vec2 point) {
     float min_distance = b->min_true.x < 0 ? b->min_negative.x : b->min_positive.x;
     distance_t d = b->min_true;
     distance_to_pseudo_distance(b->near_edge, &d, point, b->near_edge_param);
@@ -356,10 +356,10 @@ float compute_distance(pseudo_distance_selector_base *b, vec2 point) {
     return min_distance;
 }
 
-multi_distance get_pixel_distance(struct workspace *ws, struct shape *shape) {
-    multi_distance shape_distance = get_distance(&ws->shape);
-    multi_distance inner_distance = get_distance(&ws->inner);
-    multi_distance outer_distance = get_distance(&ws->outer);
+multi_distance get_pixel_distance(struct workspace *ws, struct shape *shape, vec2 point) {
+    multi_distance shape_distance = get_distance(&ws->shape, point);
+    multi_distance inner_distance = get_distance(&ws->inner, point);
+    multi_distance outer_distance = get_distance(&ws->outer, point);
     float inner_d = resolve_multi_distance(inner_distance);
     float outer_d = resolve_multi_distance(outer_distance);
 

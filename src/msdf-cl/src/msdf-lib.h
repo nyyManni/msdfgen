@@ -9,11 +9,12 @@ enum color {
     BLACK = 0,
     RED = 1,
     GREEN = 2,
-    YELLOW = 3,
     BLUE = 4,
-    MAGENTA = 5,
-    CYAN = 6,
-    WHITE = 7
+
+    YELLOW = RED | GREEN,
+    MAGENTA = BLUE | RED,
+    CYAN = BLUE | GREEN,
+    WHITE = RED | GREEN | BLUE
 };
 
 typedef struct _vec2 {
@@ -135,27 +136,6 @@ struct shape {
     int32_t ncontours;
     contour contours[];
 };
-
-#define NTH_CONTOUR(s, n)
-
-#define FOREACH_CONTOUR_BEGIN(s, c)                                                      \
-    do {                                                                                 \
-        int ___i, ___j;                                                                  \
-        contour *c = s->contours;                                                        \
-        contour *___c = s->contours;                                                     \
-        segment *___s;                                                                   \
-        for (___i = 0, ___c = s->contours; ___i < s->ncontours;                          \
-             ++___i, ___c = (contour *)___s) {                                           \
-            contour *c = ___c;
-
-#define FOREACH_CONTOUR_END()                                                            \
-    for (___j = 0, ___s = ___c->segments; ___j < ___c->nsegments;                        \
-         ++___j, ___s = (segment *)(((vec2 *)(___s + 1)) + ___s->npoints)) {             \
-    }                                                                                    \
-    }                                                                                    \
-    }                                                                                    \
-    while (0)                                                                            \
-        ;
 
 typedef vec2 distance_t;
 
