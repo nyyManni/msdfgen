@@ -28,7 +28,7 @@ public:
         pixel.r = float(distance.r/range+.5);
         pixel.g = float(distance.g/range+.5);
         pixel.b = float(distance.b/range+.5);
-        printf("--> PIXEL: %.2f %.2f %.2f\n", pixel.r, pixel.g, pixel.b);
+        // printf("--> PIXEL: %.2f %.2f %.2f\n", pixel.r, pixel.g, pixel.b);
         return pixel;
     }
 };

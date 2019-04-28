@@ -23,7 +23,7 @@
     } while (0);
 
 typedef struct segment {
-    cl_int color;
+    cl_uint color;
     cl_int npoints;
     cl_float2 points[];
 } segment;
@@ -108,14 +108,21 @@ static inline cl_float2 Point2_to_vec2(msdfgen::Point2 p) { return {(cl_float)p.
 
 int main() {
 
+    /* printf("glyph size: %lu, contour size: %lu, segment size: %lu\n", */
+    /*        sizeof (glyph), sizeof (contour), sizeof (segment)); */
+    /* printf("initializing platform\n"); */
     err = clGetPlatformIDs(1, &platform, NULL);
     err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
+    /* printf("creating context\n"); */
     ctx = clCreateContext(0, 1, &device, NULL, NULL, &err);
+    /* printf("creating queue\n"); */
     queue = clCreateCommandQueueWithProperties(ctx, device, 0, &err);
     char *kernelSrc = readSource("kernel.cl");
+    /* printf("creating program\n"); */
     program = clCreateProgramWithSource(ctx, 1, (const char **)&kernelSrc, NULL, &err);
     free(kernelSrc);
 
+    /* printf("building program\n"); */
     err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
     if (err != CL_SUCCESS) {
         printf("building program failed\n");
@@ -131,22 +138,24 @@ int main() {
         }
         exit(-1);
     }
+    /* printf("creating kernel\n"); */
     msdf_kernel = clCreateKernel(program, "msdf", &err);
 
 
+    /* printf("parsing input\n"); */
     msdfgen::Shape shape;
     msdf_font_handle f =
         msdf_load_font("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
     msdfgen::FontHandle *font = (msdfgen::FontHandle *)f->__handle;
 
-    // msdfgen::loadGlyph(shape, font, '1');
-    msdfgen::loadGlyph(shape, font, 0x00e4);
+    msdfgen::loadGlyph(shape, font, '1');
+    /* msdfgen::loadGlyph(shape, font, 0x00e4); */
     // msdfgen::loadGlyph(shape, font, '#');
     // msdfgen::loadGlyph(shape, font, '0');
     // msdfgen::loadGlyph(shape, font, ' ');
-
     shape.normalize();
     edgeColoringSimple(shape, 3.0);
+
 
     size_t input_size = sizeof(struct glyph);
     for (msdfgen::Contour &c : shape.contours) {
@@ -169,10 +178,12 @@ int main() {
         contour *c = glyph_data->contours;
         for (msdfgen::Contour &_c : shape.contours) {
             c->nsegments = _c.edges.size();
+            /* printf("nsegments: %d\n", c->nsegments); */
             c->winding = _c.winding();
             segment *s = c->segments;
             for (msdfgen::EdgeHolder &_e : _c.edges) {
                 s->color = _e->color;
+                /* printf("sdfsf s->clsdfor: %d\n", _e->color); */
                 if (auto p = dynamic_cast<msdfgen::LinearSegment *>(_e.edgeSegment)) {
                     s->npoints = 2;
                     s->points[0] = Point2_to_vec2(p->p[0]);
@@ -196,8 +207,9 @@ int main() {
             c = (contour *)s;
         }
     }
+    /* printf("clor: %d\n", ((struct glyph *)input_buffer)->contours[0].segments[0].color); */
 
-    cl_float2 scale = {1.0, 1.0};
+    cl_float2 scale = {0.3, 0.3};
     cl_float2 translate = {0.0, 0.0};
     cl_float range = 4.0;
 
@@ -207,9 +219,25 @@ int main() {
     size_t h = ceil((height + range) * scale.x);
 
 
+    /* cl_float _input_buffer[2000]; */
 
-    cl_mem glyph_data_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, input_size, NULL, &err);
 
+    /* input_buffer[0] = 13.0f; */
+    cl_mem glyph_data_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, 
+                                           input_size, NULL, &err);
+    CHECK(err);
+    
+    /* err = clEnqueueWriteBuffer(queue, glyph_data_buf, CL_FALSE, 0, */
+    /*                            input_size, &input_buffer, 0, NULL, NULL); */
+    CHECK(err);
+
+    /* printf("input size: %lu\n", input_size); */
+    struct glyph *g = (struct glyph *)input_buffer;
+    /* printf("glyph size: %lu, contour size: %lu, segment size: %lu\n", */
+    /*        sizeof (glyph), sizeof (contour), sizeof (segment)); */
+    /* printf("ncontours: %d\n", g->ncontours); */
+    /* printf("winding:   %d\n", g->contours[0].winding); */
+    
 
     cl_image_format img_fmt = {.image_channel_order = CL_RGBA, 
                                .image_channel_data_type = CL_FLOAT};
@@ -221,27 +249,47 @@ int main() {
     cl_mem output_buf =clCreateImage(ctx, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR | CL_MEM_HOST_READ_ONLY,
                                      &img_fmt, &img_dsc, NULL, &err);
     CHECK(err);
+    /* printf("top left: %d\n", glyph_data->ncontours); */
+    /* printf("top left: %d\n", ((cl_int *)input_buffer)[0]); */
+
+    /* for (int i = 0; i < 20; ++i) { */
+    err = clEnqueueWriteBuffer(queue, glyph_data_buf, CL_FALSE, 0,
+                               input_size,
+                               &((cl_float *)input_buffer)[0], 0, NULL, NULL);
+    CHECK(err);
+    clFinish(queue);
     
+    /* printf("start iteration\n"); */
     clSetKernelArg(msdf_kernel, 0, sizeof(cl_mem), &glyph_data_buf);
     clSetKernelArg(msdf_kernel, 1, sizeof(cl_mem), &output_buf);
     clSetKernelArg(msdf_kernel, 2, sizeof(cl_float2), &scale);
     clSetKernelArg(msdf_kernel, 3, sizeof(cl_float2), &translate);
     clSetKernelArg(msdf_kernel, 4, sizeof(cl_float), &range);
+    CHECK(err);
     
     size_t global_work_size[] = {w, h};
-    size_t local_work_size[] = {4, 4};
-    err = clEnqueueNDRangeKernel(queue, msdf_kernel, 2, NULL, global_work_size, 
+    /* size_t global_work_size[] = {1, 1}; */
+    size_t local_work_size[] = {1, 1};
+    err = clEnqueueNDRangeKernel(queue, msdf_kernel, 2, NULL, global_work_size,
                                  local_work_size, 0, NULL, NULL);
+    CHECK(err);
     
     cl_float4 *output = (cl_float4 *)malloc(h * w * sizeof(cl_float4));
 
     const size_t origin[3] = {0, 0, 0};
     const size_t region[3] = {w, h, 1};
     clEnqueueReadImage(queue, output_buf, CL_TRUE, origin, region, 0, 0, output, 0, NULL, NULL);
+    CHECK(err);
+    clFinish(queue);
+    CHECK(err);
         
-    printf("top left: %.2f\n", output[0].x);
+    /* for (int i = 0; i < h * w; ++i) */
+    /*     printf("--> PIXEL: %.2f %.2f %.2f\n", output[i].x, output[i].y, output[i].z); */
+    /* printf("top left: %d\n", output[0].x); */
+    /* printf("finish iteration\n"); */
+    /* } */
 
-    free(output);
+    /* free(output); */
     clReleaseMemObject(glyph_data_buf);
     clReleaseMemObject(output_buf);
     clReleaseKernel(msdf_kernel);

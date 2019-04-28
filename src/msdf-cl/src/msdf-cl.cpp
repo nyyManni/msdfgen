@@ -35,7 +35,7 @@ static inline vec3 to_pixel(multi_distance d, float range) {
     return vec3(d.r / range + 0.5f, d.g / range + 0.5f, d.b / range + 0.5f);
 }
 
-void add_segment(struct edge_selector *, segment *, segment *, segment *, vec2);
+vec2 add_segment(struct edge_selector *, segment *, segment *, segment *, vec2);
 void set_contour_edge(struct workspace *, struct edge_selector *, contour *, vec2);
 
 bool less(distance_t a, distance_t b) {
@@ -49,6 +49,9 @@ void add_segment_true_distance(struct distance_selector *psdb, segment *s,
         psdb->near_edge = s;
         psdb->near_edge_param = param;
     }
+    // printf("min_true: %.2f, %.2f\n", psdb->min_true.x, psdb->min_true.y);
+    // printf("min_true: %.2f, %.2f (comparing %.2f, %.2f)\n", psdb->min_true.x, psdb->min_true.y,
+    //        d.x, d.y);
 }
 
 void add_segment_pseudo_distance(struct distance_selector *psdb,
@@ -57,6 +60,7 @@ void add_segment_pseudo_distance(struct distance_selector *psdb,
     if (less(d, *min_pseudo)) {
         *min_pseudo = d;
     }
+    // printf("min_pseudo: %.2f, %.2f\n", min_pseudo->x, min_pseudo->y);
 }
 
 void distance_to_pseudo_distance(segment *s, distance_t *d, vec2 p, float param) {
@@ -99,8 +103,8 @@ int main() {
         msdf_load_font("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
     msdfgen::FontHandle *font = (msdfgen::FontHandle *)f->__handle;
 
-    // msdfgen::loadGlyph(shape, font, '1');
-    msdfgen::loadGlyph(shape, font, 0x00e4);
+    msdfgen::loadGlyph(shape, font, '1');
+    // msdfgen::loadGlyph(shape, font, 0x00e4);
     // msdfgen::loadGlyph(shape, font, '#');
     // msdfgen::loadGlyph(shape, font, '0');
     // msdfgen::loadGlyph(shape, font, ' ');
@@ -133,6 +137,7 @@ int main() {
             segment *s = c->segments;
             for (msdfgen::EdgeHolder &_e : _c.edges) {
                 s->color = _e->color;
+                // printf("%d\n", s->color);
                 if (auto p = dynamic_cast<msdfgen::LinearSegment *>(_e.edgeSegment)) {
                     s->npoints = 2;
                     s->points[0] = Point2_to_vec2(p->p[0]);
@@ -159,7 +164,7 @@ int main() {
         }
     }
 
-    vec2 scale = {1.0, 1.0};
+    vec2 scale = {0.3, 0.3};
     vec2 translate = {0.0, 0.0};
     float range = 4.0;
 
@@ -169,7 +174,7 @@ int main() {
     int h = ceil((height + range) * scale.x);
 
     msdfgen::Bitmap<msdfgen::FloatRGB> msdf(w, h);
-    msdfgen::generateMSDF(msdf, shape, range, 1.0, msdfgen::Vector2(0.0, 0.0), 1.001,
+    msdfgen::generateMSDF(msdf, shape, range, msdfgen::Vector2(scale.x, scale.y), msdfgen::Vector2(0.0, 0.0), 1.001,
                           true);
 
     vec3 *output = (vec3 *)malloc(h * w * sizeof(vec3));
@@ -177,6 +182,7 @@ int main() {
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
             calculate_pixel(glyph_data, output, x, y, w, scale, translate, range);
+            // return 0;
         }
     }
 
@@ -231,10 +237,13 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
     init_edge_selector(&ws.outer, p);
 
     struct edge_selector e;
+    
+    vec2 distance;
 
     contour *c = shape->contours;
     for (int _i = 0; _i < shape->ncontours; ++_i) {
 
+        // printf("segments: %d\n", c->nsegments);
         if (!c->nsegments) {
             c += 1;
             continue;
@@ -257,7 +266,7 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
             NEXT_SEGMENT(prev)
 
         for (int _i = 0; _i < c->nsegments; ++_i) {
-            add_segment(&e, prev, cur, s, p);
+            distance =add_segment(&e, prev, cur, s, p);
             prev = cur;
             cur = s;
             NEXT_SEGMENT(s);
@@ -268,17 +277,22 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
         /* s now points to the next contour structure (if any) */
         c = (contour *)s;
     }
+    // printf("top left: %.2f %.2f %.2f\n", distance.x, distance.y, 0.0);
 
     multi_distance d = get_pixel_distance(&ws, shape, p);
+    // printf("pixel_distance: %.2f %.2f %.2f\n", d.r, d.g, d.b);
     vec3 pixel = to_pixel(d, range);
-    printf("==> PIXEL: %.2f %.2f %.2f\n", pixel.r, pixel.g, pixel.b);
+    printf("pixel_distance: %.2f %.2f %.2f %.2f\n", pixel.r, pixel.g, pixel.b, 1.0);
+    // printf("==> PIXEL: %.2f %.2f %.2f\n", pixel.r, pixel.g, pixel.b);
     output[y * stride + x] = pixel;
 }
 
-void add_segment(struct edge_selector *e, segment *prev, segment *cur, segment *next, vec2 point) {
+vec2 add_segment(struct edge_selector *e, segment *prev, segment *cur, segment *next, vec2 point) {
     float param;
 
+    // printf("color: %d, points: %d\n", cur->color, cur->npoints);
     distance_t d = signed_distance(cur, point, &param);
+    // printf("color: %d\n", cur->color);
 
     if (cur->color & RED)
         add_segment_true_distance(&e->r, cur, d, param);
@@ -297,6 +311,8 @@ void add_segment(struct edge_selector *e, segment *prev, segment *cur, segment *
         if (cur->color & BLUE)
             add_segment_pseudo_distance(&e->b, d);
     }
+    // printf("distance: %.2f, %.2f\n", d.x, d.y);
+    return d;
 }
 float compute_distance(distance_selector *b, vec2 point);
 
@@ -331,6 +347,8 @@ multi_distance get_distance(edge_selector *e, vec2 point) {
 void set_contour_edge(struct workspace *ws, struct edge_selector *e, contour *c, vec2 point) {
 
     multi_distance d = get_distance(e, point);
+    // printf("multi distance: %.2f, %.2f, %.2f\n",
+    //        d.r, d.g, d.b);
 
     merge_multi_segment(&ws->shape, e);
     if (c->winding > 0 && resolve_multi_distance(d) >= 0)
@@ -362,6 +380,9 @@ multi_distance get_pixel_distance(struct workspace *ws, struct shape *shape, vec
     multi_distance outer_distance = get_distance(&ws->outer, point);
     float inner_d = resolve_multi_distance(inner_distance);
     float outer_d = resolve_multi_distance(outer_distance);
+    // printf("inner_d: %.2f\n", inner_d);
+    // printf("outer_d: %.2f\n", outer_d);
+    // printf("shape_distance: %.2f %.2f %.2f\n", shape_distance.r, shape_distance.g, shape_distance.b);
 
     bool inner = inner_d >= 0 && fabs(inner_d) <= fabs(outer_d);
     bool outer = outer_d <= 0 && fabs(outer_d) < fabs(inner_d);
