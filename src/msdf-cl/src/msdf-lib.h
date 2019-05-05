@@ -9,13 +9,12 @@ enum color {
     BLACK = 0,
     RED = 1,
     GREEN = 2,
-    YELLOW = 3,
     BLUE = 4,
-    MAGENTA = 5,
-    CYAN = 6,
-    WHITE = 7
+    YELLOW = RED | GREEN,
+    MAGENTA = BLUE | RED,
+    CYAN = BLUE | GREEN,
+    WHITE = RED | GREEN | BLUE
 };
-
 
 
 typedef struct _vec2 {
@@ -40,12 +39,8 @@ typedef struct _vec2 {
     struct _vec2 operator*(float value) {
         return _vec2(x * value, y * value);
     }
-
-
 } vec2;
-static inline struct _vec2 operator*(float value, struct _vec2 vector) {
-    return _vec2(value * vector.x, value * vector.y);
-}
+
 
 typedef struct _vec3 {
     _vec3() : x(0), y(0), z(0) {}
@@ -92,11 +87,6 @@ typedef struct segment_distance {
     float param;
 } segment_distance;
 
-struct multi_distance {
-    float r;
-    float g;
-    float b;
-};
 
 static inline float min(float a, float b) { return a < b ? a : b; }
 static inline float max(float a, float b) { return a > b ? a : b; }
@@ -105,11 +95,7 @@ static inline float median(float a, float b, float c) {
     return max(min(a, b), min(max(a, b), c));
 }
 
-static inline float resolve_multi_distance(multi_distance d) {
-    return median(d.r, d.g, d.b);
-}
 
-/* distance_t signed_distance(segment *s, vec2 p, float *param); */
 segment_distance signed_distance(segment *s, vec2 p);
 
 static inline float dot(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
@@ -131,7 +117,7 @@ static inline vec2 orthonormal(vec2 v, bool polarity /* , bool allowZero = false
 }
 
 static inline vec2 mix(vec2 a, vec2 b, float weight) {
-    return vec2((float(1) - weight) * a + weight * b);
+    return vec2(a * (float(1) - weight) + b * weight);
 }
 static inline vec2 segment_direction(segment *e, float param) {
     return mix(e->points[1] - e->points[0],

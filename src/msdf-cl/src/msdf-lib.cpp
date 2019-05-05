@@ -1,12 +1,10 @@
-#include <stdio.h>
-
 #include "math.h"
 #include "msdf-lib.h"
 
 segment_distance signed_distance_linear(segment *s, vec2 origin);
 segment_distance signed_distance_quad(segment *s, vec2 origin);
 
-static int solve_cubic_normed(float x[3], float a, float b, float c) {
+int solve_cubic_normed(float x[3], float a, float b, float c) {
     float a2 = a * a;
     float q = (a2 - 3 * b) / 9;
     float r = (a * (2 * a2 - 9 * b) + 27 * c) / 54;
@@ -51,10 +49,7 @@ segment_distance signed_distance_linear(segment *s, vec2 origin) {
         float orthoDistance = dot(orthonormal(ab, false), aq);
         if (fabs(orthoDistance) < endpointDistance)
             return {distance_t(orthoDistance, 0), param};
-            // return distance_t(orthoDistance, 0);
     }
-    // return distance_t(sign(cross_(aq, ab)) * endpointDistance,
-    //                   fabs(dot(normalize(ab), normalize(eq))));
     return {distance_t(sign(cross_(aq, ab)) * endpointDistance,
                        fabs(dot(normalize(ab), normalize(eq)))), param};
 }
@@ -70,7 +65,6 @@ segment_distance signed_distance_quad(segment *s, vec2 origin) {
     float t[3];
     int solutions = solve_cubic_normed(t, b / a, c / a, d / a);
 
-
     float minDistance = sign(cross_(ab, qa)) * length(qa); // distance from A
     float param = -dot(qa, ab) / dot(ab, ab);
     float distance = sign(cross_(s->points[2] - s->points[1],
@@ -83,7 +77,7 @@ segment_distance signed_distance_quad(segment *s, vec2 origin) {
     }
     for (int i = 0; i < solutions; ++i) {
         if (t[i] > 0 && t[i] < 1) {
-            vec2 endpoint = s->points[0] + 2 * t[i] * ab + t[i] * t[i] * br;
+            vec2 endpoint = s->points[0] + ab * 2 * t[i] + br * t[i] * t[i];
             float distance =
                 sign(cross_(s->points[2] - s->points[0], endpoint - origin)) *
                 length(endpoint - origin);
