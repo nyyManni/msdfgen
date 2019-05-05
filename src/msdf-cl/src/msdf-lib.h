@@ -85,28 +85,12 @@ struct shape {
     contour contours[];
 };
 
-#define NTH_CONTOUR(s, n)
-
-#define FOREACH_CONTOUR_BEGIN(s, c)                                                      \
-    do {                                                                                 \
-        int ___i, ___j;                                                                  \
-        contour *c = s->contours;                                                        \
-        contour *___c = s->contours;                                                     \
-        segment *___s;                                                                   \
-        for (___i = 0, ___c = s->contours; ___i < s->ncontours;                          \
-             ++___i, ___c = (contour *)___s) {                                           \
-            contour *c = ___c;
-
-#define FOREACH_CONTOUR_END()                                                            \
-    for (___j = 0, ___s = ___c->segments; ___j < ___c->nsegments;                        \
-         ++___j, ___s = (segment *)(((vec2 *)(___s + 1)) + ___s->npoints)) {             \
-    }                                                                                    \
-    }                                                                                    \
-    }                                                                                    \
-    while (0)                                                                            \
-        ;
-
 typedef vec2 distance_t;
+
+typedef struct segment_distance {
+    distance_t d;
+    float param;
+} segment_distance;
 
 struct multi_distance {
     float r;
@@ -125,9 +109,8 @@ static inline float resolve_multi_distance(multi_distance d) {
     return median(d.r, d.g, d.b);
 }
 
-distance_t signed_distance(segment *s, vec2 p, float *param);
-vec2 segment_direction(segment *e, float param);
-vec2 segment_point(segment *e, float param);
+/* distance_t signed_distance(segment *s, vec2 p, float *param); */
+segment_distance signed_distance(segment *s, vec2 p);
 
 static inline float dot(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
 
@@ -135,7 +118,6 @@ static inline float cross_(vec2 a, vec2 b) { return a.x * b.y - a.y * b.x; }
 
 static inline float length(vec2 v) { return sqrt(v.x * v.x + v.y * v.y); }
 
-/* static inline int sign(float n) { return 2 * (n > float(0)) - 1; } */
 static inline int sign(float n) { return 2 * (n > float(0)) - 1; }
 
 static inline vec2 normalize(vec2 v) {
@@ -150,6 +132,17 @@ static inline vec2 orthonormal(vec2 v, bool polarity /* , bool allowZero = false
 
 static inline vec2 mix(vec2 a, vec2 b, float weight) {
     return vec2((float(1) - weight) * a + weight * b);
+}
+static inline vec2 segment_direction(segment *e, float param) {
+    return mix(e->points[1] - e->points[0],
+               e->points[e->npoints - 1] - e->points[e->npoints - 2],
+               param);
+}
+
+static inline vec2 segment_point(segment *e, float param) {
+    return mix(mix(e->points[0], e->points[1], param),
+               mix(e->points[e->npoints - 2], e->points[e->npoints - 1], param),
+               param);
 }
 
 #endif /* MSDF_LIB_H */

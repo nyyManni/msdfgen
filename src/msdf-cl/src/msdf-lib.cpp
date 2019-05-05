@@ -3,8 +3,8 @@
 #include "math.h"
 #include "msdf-lib.h"
 
-distance_t signed_distance_linear(segment *s, vec2 origin, float *param);
-distance_t signed_distance_quad(segment *s, vec2 origin, float *param);
+segment_distance signed_distance_linear(segment *s, vec2 origin);
+segment_distance signed_distance_quad(segment *s, vec2 origin);
 
 static int solve_cubic_normed(float x[3], float a, float b, float c) {
     float a2 = a * a;
@@ -35,28 +35,31 @@ static int solve_cubic_normed(float x[3], float a, float b, float c) {
     }
 }
 
-distance_t signed_distance(segment *s, vec2 p, float *param) {
+segment_distance signed_distance(segment *s, vec2 p) {
     if (s->npoints == 2)
-        return signed_distance_linear(s, p, param);
-    return signed_distance_quad(s, p, param);
+        return signed_distance_linear(s, p);
+    return signed_distance_quad(s, p);
 }
 
-distance_t signed_distance_linear(segment *s, vec2 origin, float *param) {
+segment_distance signed_distance_linear(segment *s, vec2 origin) {
     vec2 aq = origin - s->points[0];
     vec2 ab = s->points[1] - s->points[0];
-    *param = dot(aq, ab) / dot(ab, ab);
-    vec2 eq = s->points[*param > .5] - origin;
+    float param = dot(aq, ab) / dot(ab, ab);
+    vec2 eq = s->points[param > .5] - origin;
     float endpointDistance = length(eq);
-    if (*param > 0 && *param < 1) {
+    if (param > 0 && param < 1) {
         float orthoDistance = dot(orthonormal(ab, false), aq);
         if (fabs(orthoDistance) < endpointDistance)
-            return distance_t(orthoDistance, 0);
+            return {distance_t(orthoDistance, 0), param};
+            // return distance_t(orthoDistance, 0);
     }
-    return distance_t(sign(cross_(aq, ab)) * endpointDistance,
-                      fabs(dot(normalize(ab), normalize(eq))));
+    // return distance_t(sign(cross_(aq, ab)) * endpointDistance,
+    //                   fabs(dot(normalize(ab), normalize(eq))));
+    return {distance_t(sign(cross_(aq, ab)) * endpointDistance,
+                       fabs(dot(normalize(ab), normalize(eq)))), param};
 }
 
-distance_t signed_distance_quad(segment *s, vec2 origin, float *param) {
+segment_distance signed_distance_quad(segment *s, vec2 origin) {
     vec2 qa = s->points[0] - origin;
     vec2 ab = s->points[1] - s->points[0];
     vec2 br = s->points[2] - s->points[1] - ab;
@@ -69,13 +72,13 @@ distance_t signed_distance_quad(segment *s, vec2 origin, float *param) {
 
 
     float minDistance = sign(cross_(ab, qa)) * length(qa); // distance from A
-    *param = -dot(qa, ab) / dot(ab, ab);
+    float param = -dot(qa, ab) / dot(ab, ab);
     float distance = sign(cross_(s->points[2] - s->points[1],
                                     s->points[2] - origin)) *
                         length(s->points[2] - origin); // distance from B
     if (fabs(distance) < fabs(minDistance)) {
         minDistance = distance;
-        *param = dot(origin - s->points[1], s->points[2] - s->points[1]) /
+        param = dot(origin - s->points[1], s->points[2] - s->points[1]) /
                     dot(s->points[2] - s->points[1], s->points[2] - s->points[1]);
     }
     for (int i = 0; i < solutions; ++i) {
@@ -86,27 +89,16 @@ distance_t signed_distance_quad(segment *s, vec2 origin, float *param) {
                 length(endpoint - origin);
             if (fabs(distance) <= fabs(minDistance)) {
                 minDistance = distance;
-                *param = t[i];
+                param = t[i];
             }
         }
     }
 
-    if (*param >= 0 && *param <= 1)
-        return distance_t(minDistance, 0);
-    if (*param < .5)
-        return distance_t(minDistance, fabs(dot(normalize(ab), normalize(qa))));
-    return distance_t(minDistance, fabs(dot(normalize(s->points[2] - s->points[1]),
-                                            normalize(s->points[2] - origin))));
+    if (param >= 0 && param <= 1)
+        return {distance_t(minDistance, 0), param};
+    if (param < .5)
+        return {distance_t(minDistance, fabs(dot(normalize(ab), normalize(qa)))), param};
+    return {distance_t(minDistance, fabs(dot(normalize(s->points[2] - s->points[1]),
+                                             normalize(s->points[2] - origin)))), param};
 }
 
-vec2 segment_direction(segment *e, float param) {
-    return mix(e->points[1] - e->points[0],
-               e->points[e->npoints - 1] - e->points[e->npoints - 2],
-               param);
-}
-
-vec2 segment_point(segment *e, float param) {
-    return mix(mix(e->points[0], e->points[1], param),
-               mix(e->points[e->npoints - 2], e->points[e->npoints - 1], param),
-               param);
-}

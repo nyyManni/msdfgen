@@ -16,6 +16,7 @@ struct pseudo_distance_selector_base {
     segment *near_edge;
 };
 
+
 struct edge_selector {
     vec2 point;
     pseudo_distance_selector_base r, g, b;
@@ -275,26 +276,25 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
 }
 
 void add_segment(struct edge_selector *e, segment *prev, segment *cur, segment *next) {
-    float param;
 
-    distance_t d = signed_distance(cur, e->point, &param);
+    segment_distance d = signed_distance(cur, e->point);
 
     if (cur->color & RED)
-        add_segment_true_distance(&e->r, cur, d, param);
+        add_segment_true_distance(&e->r, cur, d.d, d.param);
     if (cur->color & GREEN)
-        add_segment_true_distance(&e->g, cur, d, param);
+        add_segment_true_distance(&e->g, cur, d.d, d.param);
     if (cur->color & BLUE)
-        add_segment_true_distance(&e->b, cur, d, param);
+        add_segment_true_distance(&e->b, cur, d.d, d.param);
 
-    if (point_facing_edge(prev, cur, next, e->point, param)) {
+    if (point_facing_edge(prev, cur, next, e->point, d.param)) {
 
-        d = distance_to_pseudo_distance(cur, d, e->point, param);
+        distance_t pd = distance_to_pseudo_distance(cur, d.d, e->point, d.param);
         if (cur->color & RED)
-            add_segment_pseudo_distance(&e->r, d);
+            add_segment_pseudo_distance(&e->r, pd);
         if (cur->color & GREEN)
-            add_segment_pseudo_distance(&e->g, d);
+            add_segment_pseudo_distance(&e->g, pd);
         if (cur->color & BLUE)
-            add_segment_pseudo_distance(&e->b, d);
+            add_segment_pseudo_distance(&e->b, pd);
     }
 }
 float compute_distance(pseudo_distance_selector_base *b, vec2 point);
