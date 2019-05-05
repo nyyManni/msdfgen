@@ -87,6 +87,12 @@ typedef struct segment_distance {
     float param;
 } segment_distance;
 
+struct multi_distance {
+    float r;
+    float g;
+    float b;
+};
+
 
 static inline float min(float a, float b) { return a < b ? a : b; }
 static inline float max(float a, float b) { return a > b ? a : b; }
@@ -96,7 +102,7 @@ static inline float median(float a, float b, float c) {
 }
 
 
-segment_distance signed_distance(segment *s, vec2 p);
+segment_distance signed_distance(segment *s, int, vec2 p);
 
 static inline float dot(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
 

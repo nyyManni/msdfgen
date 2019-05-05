@@ -4,7 +4,7 @@
 segment_distance signed_distance_linear(segment *s, vec2 origin);
 segment_distance signed_distance_quad(segment *s, vec2 origin);
 
-int solve_cubic_normed(float x[3], float a, float b, float c) {
+static int solve_cubic_normed(float x[3], float a, float b, float c) {
     float a2 = a * a;
     float q = (a2 - 3 * b) / 9;
     float r = (a * (2 * a2 - 9 * b) + 27 * c) / 54;
@@ -33,8 +33,8 @@ int solve_cubic_normed(float x[3], float a, float b, float c) {
     }
 }
 
-segment_distance signed_distance(segment *s, vec2 p) {
-    if (s->npoints == 2)
+segment_distance signed_distance(segment *s, int npoints, vec2 p) {
+    if (npoints == 2)
         return signed_distance_linear(s, p);
     return signed_distance_quad(s, p);
 }
