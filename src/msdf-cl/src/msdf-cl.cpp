@@ -51,36 +51,35 @@ void add_segment_true_distance(struct pseudo_distance_selector_base *psdb, segme
     }
 }
 
-void add_segment_pseudo_distance(struct pseudo_distance_selector_base *psdb,
-                                 distance_t d) {
+void add_segment_pseudo_distance(struct pseudo_distance_selector_base *psdb, distance_t d) {
     distance_t *min_pseudo = d.x < 0 ? &(psdb->min_negative) : &(psdb->min_positive);
     if (less(d, *min_pseudo)) {
         *min_pseudo = d;
     }
 }
 
-void distance_to_pseudo_distance(segment *s, distance_t *d, vec2 p, float param) {
+distance_t distance_to_pseudo_distance(segment *s, distance_t d, vec2 p, float param) {
     if (param >= 0 && param <= 1)
-        return;
+        return d;
 
     vec2 dir = normalize(segment_direction(s, param < 0 ? 0 : 1));
     vec2 aq = p - segment_point(s, param < 0 ? 0 : 1);
     float ts = dot(aq, dir);
     if (param < 0 ? ts < 0 : ts > 0) {
         float pseudo_distance = cross_(aq, dir);
-        if (fabs(pseudo_distance) <= fabs(d->x)) {
-            d->x = pseudo_distance;
-            d->y = 0;
+        if (fabs(pseudo_distance) <= fabs(d.x)) {
+            d.x = pseudo_distance;
+            d.y = 0;
         }
     }
+    return d;
 }
 
 bool point_facing_edge(segment *prev, segment *cur, segment *next, vec2 p, float param) {
     if (param >= 0 && param <= 1)
         return true;
     vec2 prev_edge_dir = -normalize(segment_direction(prev, 1));
-    vec2 edge_dir =
-        normalize(segment_direction(cur, param < 0 ? 0 : 1)) * (param < 0 ? 1 : -1);
+    vec2 edge_dir = normalize(segment_direction(cur, param < 0 ? 0 : 1)) * (param < 0 ? 1 : -1);
     vec2 next_edge_dir = normalize(segment_direction(next, 0));
     vec2 point_dir = p - segment_point(cur, param < 0 ? 0 : 1);
     return dot(point_dir, edge_dir) >=
@@ -289,7 +288,7 @@ void add_segment(struct edge_selector *e, segment *prev, segment *cur, segment *
 
     if (point_facing_edge(prev, cur, next, e->point, param)) {
 
-        distance_to_pseudo_distance(cur, &d, e->point, param);
+        d = distance_to_pseudo_distance(cur, d, e->point, param);
         if (cur->color & RED)
             add_segment_pseudo_distance(&e->r, d);
         if (cur->color & GREEN)
@@ -349,8 +348,7 @@ void set_contour_edge(struct workspace *ws, int i, struct edge_selector *e, cont
 
 float compute_distance(pseudo_distance_selector_base *b, vec2 point) {
     float min_distance = b->min_true.x < 0 ? b->min_negative.x : b->min_positive.x;
-    distance_t d = b->min_true;
-    distance_to_pseudo_distance(b->near_edge, &d, point, b->near_edge_param);
+    distance_t d = distance_to_pseudo_distance(b->near_edge, b->min_true, point, b->near_edge_param);
     if (fabs(d.x) < fabs(min_distance))
         min_distance = d.x;
     return min_distance;

@@ -16,21 +16,14 @@ enum color {
     WHITE = 7
 };
 
+
+
 typedef struct _vec2 {
     float x;
     float y;
 
     _vec2() : x(0), y(0) {}
     _vec2(float x, float y) : x(x), y(y) {}
-
-    bool operator!() { return !x && !y; }
-    bool operator==(struct _vec2 other) { return x == other.x && y == other.y; }
-
-    bool operator!=(struct _vec2 other) { return x != other.x || y != other.y; }
-
-    struct _vec2 operator+() {
-        return *this;
-    }
 
     struct _vec2 operator-() {
         return _vec2(-x, -y);
@@ -44,58 +37,14 @@ typedef struct _vec2 {
         return _vec2(x - other.x, y - other.y);
     }
 
-    struct _vec2 operator*(struct _vec2 other) {
-        return _vec2(x * other.x, y * other.y);
-    }
-
-    struct _vec2 operator/(struct _vec2 other) {
-        return _vec2(x / other.x, y / other.y);
-    }
-
     struct _vec2 operator*(float value) {
         return _vec2(x * value, y * value);
     }
 
-    struct _vec2 operator/(float value) {
-        return _vec2(x / value, y / value);
-    }
-
-    struct _vec2 operator+=(struct _vec2 other) {
-        x += other.x, y += other.y;
-        return *this;
-    }
-
-    struct _vec2 operator-=(struct _vec2 other) {
-        x -= other.x, y -= other.y;
-        return *this;
-    }
-
-    struct _vec2 operator*=(struct _vec2 other) {
-        x *= other.x, y *= other.y;
-        return *this;
-    }
-
-    struct _vec2 operator/=(struct _vec2 other) {
-        x /= other.x, y /= other.y;
-        return *this;
-    }
-
-    struct _vec2 operator*=(float value) {
-        x *= value, y *= value;
-        return *this;
-    }
-
-    struct _vec2 operator/=(float value) {
-        x /= value, y /= value;
-        return *this;
-    }
 
 } vec2;
 static inline struct _vec2 operator*(float value, struct _vec2 vector) {
     return _vec2(value * vector.x, value * vector.y);
-}
-static inline struct _vec2 operator/(float value, struct _vec2 vector) {
-    return _vec2(value / vector.x, value / vector.y);
 }
 
 typedef struct _vec3 {
