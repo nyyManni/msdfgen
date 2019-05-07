@@ -229,7 +229,6 @@ int main() {
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
             calculate_pixel(glyph_data, output, x, y, w, scale, translate, range);
-            return 0;
         }
     }
 
@@ -349,7 +348,7 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
                         point_data[prev_points + 1].x, point_data[prev_points + 1].y,
                         point_data[prev_points + 2].x, point_data[prev_points + 2].y);
             }
-            add_segment(prev, cur, s, cur_points, cur_npoints, cur_color, p);
+            add_segment(prev, cur, s, cur_points, cur->npoints, cur->color, p);
             prev = cur;
             cur = s;
             NEXT_SEGMENT(s);
@@ -387,8 +386,10 @@ void add_segment(segment *prev, segment *cur, segment *next,
     segment_distance d;
     if (npoints == 2)
         d = signed_distance_linear(cur->points[0], cur->points[1], point);
+        // d = signed_distance_linear(point_data[cur_points], point_data[cur_points + 1], point);
     else
         d = signed_distance_quad(cur->points[0], cur->points[1], cur->points[2], point);
+        // d = signed_distance_quad(point_data[cur_points], point_data[cur_points + 1], point_data[cur_points + 2], point);
 
 
     if (color & RED)
