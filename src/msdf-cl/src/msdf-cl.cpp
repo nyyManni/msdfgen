@@ -168,8 +168,14 @@ int main() {
             metadata[_m++] = _c.edges.size();
             c->nsegments = _c.edges.size();
             c->winding = _c.winding();
+
+            _p++;  /* The first segment should also have the first point */
+
             segment *s = c->segments;
             for (msdfgen::EdgeHolder &_e : _c.edges) {
+
+                _p--; /* Each consecutive segment share one point */
+
                 metadata[_m++] = _e->color;
                 s->color = (unsigned char)_e->color;
                 if (auto p = dynamic_cast<msdfgen::LinearSegment *>(_e.edgeSegment)) {
@@ -204,6 +210,7 @@ int main() {
             c = (contour *)s;
         }
     }
+    fprintf(stderr, "point data size (real): %lu\n", _p * sizeof(vec2));
 
     vec2 scale = {1.0, 1.0};
     vec2 translate = {0.0, 0.0};
@@ -310,12 +317,12 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
         
         for (int _i = 0; _i < nsegments - 1; ++_i) {
             int npoints = metadata[meta_index + 2 * _i + 1];
-            cur_points += npoints;
+            cur_points += npoints - 1;
         }
 
         for (int _i = 0; _i < nsegments - 2 && nsegments >= 2; ++_i) {
             int npoints = metadata[meta_index + 2 * _i + 1];
-            prev_points += npoints;
+            prev_points += npoints - 1;
         }
 
         fprintf(stderr, "=============================================\n");
@@ -355,10 +362,11 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
             cur_color = s_color;
             
             s_color = metadata[meta_index++ + 2];
-            point_index += s_npoints;
+            point_index += s_npoints - 1;
             s_npoints = metadata[meta_index++ + 2];
             // s_points += s_npoints;
         }
+        point_index += 1;
 
         set_contour_edge(winding, p);
 
