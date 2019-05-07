@@ -42,6 +42,8 @@ typedef struct _vec2 {
 } vec2;
 
 
+extern vec2 *point_data;
+
 typedef struct _vec3 {
     _vec3() : x(0), y(0), z(0) {}
     _vec3(float x, float y, float z) : x(x), y(y), z(z) {}
@@ -102,7 +104,15 @@ static inline float median(float a, float b, float c) {
 }
 
 
-segment_distance signed_distance(segment *s, int, vec2 p);
+/* segment_distance signed_distance_linear(segment *s, vec2 origin); */
+/* segment_distance signed_distance_quad(segment *s, vec2 origin); */
+
+segment_distance signed_distance_linear(vec2 p1, vec2 p2, vec2 origin);
+segment_distance signed_distance_quad(vec2 p1, vec2 p2, vec2 p3, vec2 origin);
+/* segment_distance signed_distance(segment *s, int, vec2 p); */
+/* segment_distance signed_distance2(segment *s, int, int, vec2 p); */
+/* segment_distance signed_distance_linear2(vec2 p1, vec2 p2, vec2 origin); */
+/* segment_distance signed_distance_quad2(vec2 p1, vec2 p2, vec2 p3, vec2 origin); */
 
 static inline float dot(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
 
@@ -125,15 +135,15 @@ static inline vec2 orthonormal(vec2 v, bool polarity /* , bool allowZero = false
 static inline vec2 mix(vec2 a, vec2 b, float weight) {
     return vec2(a * (float(1) - weight) + b * weight);
 }
-static inline vec2 segment_direction(segment *e, float param) {
-    return mix(e->points[1] - e->points[0],
-               e->points[e->npoints - 1] - e->points[e->npoints - 2],
+static inline vec2 segment_direction(vec2 *points, int npoints, float param) {
+    return mix(points[1] - points[0],
+               points[npoints - 1] - points[npoints - 2],
                param);
 }
 
-static inline vec2 segment_point(segment *e, float param) {
-    return mix(mix(e->points[0], e->points[1], param),
-               mix(e->points[e->npoints - 2], e->points[e->npoints - 1], param),
+static inline vec2 segment_point(vec2 *points, int npoints, float param) {
+    return mix(mix(points[0], points[1], param),
+               mix(points[npoints - 2], points[npoints - 1], param),
                param);
 }
 
