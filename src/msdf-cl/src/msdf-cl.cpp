@@ -119,8 +119,8 @@ int main() {
     msdfgen::FontHandle *font = (msdfgen::FontHandle *)f->__handle;
 
     // msdfgen::loadGlyph(shape, font, '1');
-    // msdfgen::loadGlyph(shape, font, 0x00e4);
-    msdfgen::loadGlyph(shape, font, '#');
+    msdfgen::loadGlyph(shape, font, 0x00e4);
+    // msdfgen::loadGlyph(shape, font, '#');
     // msdfgen::loadGlyph(shape, font, '0');
     // msdfgen::loadGlyph(shape, font, ' ');
 
@@ -222,7 +222,7 @@ int main() {
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
             calculate_pixel(glyph_data, output, x, y, w, scale, translate, range);
-            // return 0;
+            return 0;
         }
     }
 
@@ -297,13 +297,14 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
             NEXT_SEGMENT(prev);
 
         // return;
-        int s_points = point_index;
+        // int s_points = point_index;
         unsigned char s_color = metadata[meta_index + 0];
         unsigned char s_npoints = metadata[meta_index + 1];
 
         int cur_points = point_index;
         unsigned char cur_color = metadata[meta_index + 2 * (nsegments - 1) + 0];
         unsigned char cur_npoints = metadata[meta_index + 2 * (nsegments - 1) + 1];
+        unsigned char prev_npoints = nsegments >= 2 ? metadata[meta_index + 2 * (nsegments - 2) + 1] : s_npoints;
 
         int prev_points = point_index;
         
@@ -317,8 +318,30 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
             prev_points += npoints;
         }
 
+        fprintf(stderr, "=============================================\n");
         for (int _i = 0; _i < c->nsegments; ++_i) {
 
+            fprintf(stderr, "=============================================\n");
+            if (prev->npoints == 2) {
+                fprintf(stderr, "s: %.2f %.2f, %.2f %.2f\n",
+                        prev->points[0].x, prev->points[0].y,
+                        prev->points[1].x, prev->points[1].y);
+            } else {
+                fprintf(stderr, "s: %.2f %.2f, %.2f %.2f, %.2f %.2f\n",
+                        prev->points[0].x, prev->points[0].y,
+                        prev->points[1].x, prev->points[1].y,
+                        prev->points[2].x, prev->points[2].y);
+            }
+            if (prev_npoints == 2) {
+                fprintf(stderr, "s: %.2f %.2f, %.2f %.2f\n",
+                        point_data[prev_points].x, point_data[prev_points].y,
+                        point_data[prev_points + 1].x, point_data[prev_points + 1].y);
+            } else {
+                fprintf(stderr, "s: %.2f %.2f, %.2f %.2f, %.2f %.2f\n",
+                        point_data[prev_points].x, point_data[prev_points].y,
+                        point_data[prev_points + 1].x, point_data[prev_points + 1].y,
+                        point_data[prev_points + 2].x, point_data[prev_points + 2].y);
+            }
             add_segment(prev, cur, s, cur_points, cur_npoints, cur_color, p);
             prev = cur;
             cur = s;
@@ -326,14 +349,15 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
             
             
             prev_points = cur_points;
-            cur_points = s_points;
+            prev_npoints = cur_npoints;
+            cur_points = point_index;
             cur_npoints = s_npoints;
             cur_color = s_color;
             
             s_color = metadata[meta_index++ + 2];
-            s_npoints = metadata[meta_index++ + 2];
-            s_points += s_npoints;
             point_index += s_npoints;
+            s_npoints = metadata[meta_index++ + 2];
+            // s_points += s_npoints;
         }
 
         set_contour_edge(winding, p);
