@@ -104,15 +104,8 @@ static inline float median(float a, float b, float c) {
 }
 
 
-/* segment_distance signed_distance_linear(segment *s, vec2 origin); */
-/* segment_distance signed_distance_quad(segment *s, vec2 origin); */
-
 segment_distance signed_distance_linear(vec2 p1, vec2 p2, vec2 origin);
 segment_distance signed_distance_quad(vec2 p1, vec2 p2, vec2 p3, vec2 origin);
-/* segment_distance signed_distance(segment *s, int, vec2 p); */
-/* segment_distance signed_distance2(segment *s, int, int, vec2 p); */
-/* segment_distance signed_distance_linear2(vec2 p1, vec2 p2, vec2 origin); */
-/* segment_distance signed_distance_quad2(vec2 p1, vec2 p2, vec2 p3, vec2 origin); */
 
 static inline float dot(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
 

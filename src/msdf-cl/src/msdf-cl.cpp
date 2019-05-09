@@ -127,7 +127,7 @@ int main() {
     shape.normalize();
     edgeColoringSimple(shape, 3.0);
 
-    
+
     size_t point_data_size = 0;
     size_t metadata_size = 1;
     size_t input_size = sizeof(struct shape);
@@ -266,7 +266,7 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
 
     contour *c = shape->contours;
     for (int _i = 0; _i < shape->ncontours; ++_i) {
-        
+
         char winding = (char)metadata[meta_index++] - 1;
         unsigned char nsegments = metadata[meta_index++];
 
@@ -313,7 +313,7 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
         unsigned char prev_npoints = nsegments >= 2 ? metadata[meta_index + 2 * (nsegments - 2) + 1] : s_npoints;
 
         int prev_points = point_index;
-        
+
         for (int _i = 0; _i < nsegments - 1; ++_i) {
             int npoints = metadata[meta_index + 2 * _i + 1];
             cur_points += npoints - 1;
@@ -352,18 +352,17 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
             prev = cur;
             cur = s;
             NEXT_SEGMENT(s);
-            
-            
+
+
             prev_points = cur_points;
             prev_npoints = cur_npoints;
             cur_points = point_index;
             cur_npoints = s_npoints;
             cur_color = s_color;
-            
+
             s_color = metadata[meta_index++ + 2];
             point_index += s_npoints - 1;
             s_npoints = metadata[meta_index++ + 2];
-            // s_points += s_npoints;
         }
         point_index += 1;
 
@@ -385,11 +384,12 @@ void add_segment(segment *prev, segment *cur, segment *next,
 
     segment_distance d;
     if (npoints == 2)
-        d = signed_distance_linear(cur->points[0], cur->points[1], point);
-        // d = signed_distance_linear(point_data[cur_points], point_data[cur_points + 1], point);
+        d = signed_distance_linear(point_data[cur_points],
+                                   point_data[cur_points + 1], point);
     else
-        d = signed_distance_quad(cur->points[0], cur->points[1], cur->points[2], point);
-        // d = signed_distance_quad(point_data[cur_points], point_data[cur_points + 1], point_data[cur_points + 2], point);
+        d = signed_distance_quad(point_data[cur_points],
+                                 point_data[cur_points + 1],
+                                 point_data[cur_points + 2], point);
 
 
     if (color & RED)
