@@ -1,6 +1,7 @@
 #include "msdf-lib.h"
 #include "math.h"
 
+
 segment_distance signed_distance_linear(vec2 p0, vec2 p1, vec2 origin) {
     vec2 aq = origin - p0;
     vec2 ab = p1 - p0;

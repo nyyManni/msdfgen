@@ -128,6 +128,7 @@ static inline vec2 orthonormal(vec2 v, bool polarity /* , bool allowZero = false
 static inline vec2 mix(vec2 a, vec2 b, float weight) {
     return vec2(a * (float(1) - weight) + b * weight);
 }
+
 static inline vec2 segment_direction(vec2 *points, int npoints, float param) {
     return mix(points[1] - points[0],
                points[npoints - 1] - points[npoints - 2],
@@ -137,6 +138,18 @@ static inline vec2 segment_direction(vec2 *points, int npoints, float param) {
 static inline vec2 segment_point(vec2 *points, int npoints, float param) {
     return mix(mix(points[0], points[1], param),
                mix(points[npoints - 2], points[npoints - 1], param),
+               param);
+}
+
+static inline vec2 segment_direction2(int points, int npoints, float param) {
+    return mix(point_data[points + 1] - point_data[points],
+               point_data[points + npoints - 1] - point_data[points + npoints - 2],
+               param);
+}
+
+static inline vec2 segment_point2(int points, int npoints, float param) {
+    return mix(mix(point_data[points], point_data[points + 1], param),
+               mix(point_data[points + npoints - 2], point_data[points + npoints - 1], param),
                param);
 }
 

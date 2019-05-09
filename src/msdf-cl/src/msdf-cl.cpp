@@ -23,7 +23,6 @@ struct workspace {
     struct {
         segment_distance min_true;
         distance_t min_negative, min_positive;
-        segment *nearest_segment;
         int nearest_points;
         int nearest_npoints;
     } segments[4 * 3];
@@ -46,18 +45,23 @@ static inline vec3 to_pixel(multi_distance d, float range) {
     return vec3(d.r / range + 0.5f, d.g / range + 0.5f, d.b / range + 0.5f);
 }
 
-void add_segment(segment *, segment *, segment *, int, int, int, vec2);
+void add_segment(
+                 int prev_npoints, int prev_points,
+                 int cur_npoints, int cur_points,
+                 int next_npoints, int next_points,
+                 int color, vec2 point);
 void set_contour_edge(int, vec2);
 
 bool less(distance_t a, distance_t b) {
     return fabs(a.x) < fabs(b.x) || (fabs(a.x) == fabs(b.x) && a.y < b.y);
 }
-void add_segment_true_distance(int segment_index, segment *s, segment_distance d) {
+void add_segment_true_distance(int segment_index, int npoints, int points, segment_distance d) {
     bool is_less = less(d.d, ws.segments[segment_index].min_true.d);
     ws.segments[segment_index].min_true = is_less ? d : ws.segments[segment_index].min_true;
-    ws.segments[segment_index].nearest_segment = is_less ? s : ws.segments[segment_index].nearest_segment;
-    // ws.segments[segment_index].nearest_points = is_less ? s->points_idx : ws.segments[segment_index].nearest_points_idx;
-    ws.segments[segment_index].nearest_npoints = is_less ? s->npoints : ws.segments[segment_index].nearest_npoints;
+    
+    
+    ws.segments[segment_index].nearest_points = is_less ? points :  ws.segments[segment_index].nearest_points;
+    ws.segments[segment_index].nearest_npoints = is_less ? npoints :  ws.segments[segment_index].nearest_npoints;
 }
 
 void add_segment_pseudo_distance(int segment_index, distance_t d) {
@@ -65,12 +69,12 @@ void add_segment_pseudo_distance(int segment_index, distance_t d) {
     *min_pseudo = less(d, *min_pseudo) ? d : *min_pseudo;
 }
 
-distance_t distance_to_pseudo_distance(segment *s, segment_distance d, vec2 p) {
+distance_t distance_to_pseudo_distance(int npoints, int points, segment_distance d, vec2 p) {
     if (d.param >= 0 && d.param <= 1)
         return d.d;
 
-    vec2 dir = normalize(segment_direction(s->points, s->npoints, d.param < 0 ? 0 : 1));
-    vec2 aq = p - segment_point(s->points, s->npoints, d.param < 0 ? 0 : 1);
+    vec2 dir = normalize(segment_direction2(points, npoints, d.param < 0 ? 0 : 1));
+    vec2 aq = p - segment_point2(points, npoints, d.param < 0 ? 0 : 1);
     float ts = dot(aq, dir);
     if (d.param < 0 ? ts < 0 : ts > 0) {
         float pseudo_distance = cross_(aq, dir);
@@ -82,28 +86,20 @@ distance_t distance_to_pseudo_distance(segment *s, segment_distance d, vec2 p) {
     return d.d;
 }
 
-bool point_facing_edge(segment *prev, segment *cur, segment *next, vec2 p, float param) {
+bool point_facing_edge2(int prev_npoints, int prev_points,
+                        int cur_npoints, int cur_points,
+                        int next_npoints, int next_points, vec2 p, float param) {
+
     if (param >= 0 && param <= 1)
         return true;
 
-    vec2 prev_edge_dir = -normalize(segment_direction(prev->points, prev->npoints, 1));
-    vec2 edge_dir = normalize(segment_direction(cur->points, cur->npoints, param < 0 ? 0 : 1)) * (param < 0 ? 1 : -1);
-    vec2 next_edge_dir = normalize(segment_direction(next->points, next->npoints, 0));
-    vec2 point_dir = p - segment_point(cur->points, cur->npoints, param < 0 ? 0 : 1);
+    vec2 prev_edge_dir = -normalize(segment_direction2(prev_points, prev_npoints, 1));
+    vec2 edge_dir = normalize(segment_direction2(cur_points, cur_npoints, param < 0 ? 0 : 1)) * (param < 0 ? 1 : -1);
+    vec2 next_edge_dir = normalize(segment_direction2(next_points, next_npoints, 0));
+    vec2 point_dir = p - segment_point2(cur_points, cur_npoints, param < 0 ? 0 : 1);
     return dot(point_dir, edge_dir) >=
            dot(point_dir, param < 0 ? prev_edge_dir : next_edge_dir);
 }
-// bool point_facing_edge2(segment *prev, segment *cur, segment *next, vec2 p, float param) {
-//     if (param >= 0 && param <= 1)
-//         return true;
-
-//     vec2 prev_edge_dir = -normalize(segment_direction(prev->points, prev->npoints, 1));
-//     vec2 edge_dir = normalize(segment_direction(cur->points, cur->npoints, param < 0 ? 0 : 1)) * (param < 0 ? 1 : -1);
-//     vec2 next_edge_dir = normalize(segment_direction(next->points, next->npoints, 0));
-//     vec2 point_dir = p - segment_point(cur->points, cur->npoints, param < 0 ? 0 : 1);
-//     return dot(point_dir, edge_dir) >=
-//            dot(point_dir, param < 0 ? prev_edge_dir : next_edge_dir);
-// }
 
 multi_distance get_pixel_distance(vec2);
 
@@ -257,7 +253,6 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
         ws.segments[_i].min_true.d.x = -INFINITY;
         ws.segments[_i].min_true.d.y = 1;
         ws.segments[_i].min_true.param = 0;
-        ws.segments[_i].nearest_segment = NULL;
     }
     size_t point_index = 0;
     size_t meta_index = 0;
@@ -282,7 +277,6 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
             ws.segments[_i].min_true.d.x = -INFINITY;
             ws.segments[_i].min_true.d.y = 1;
             ws.segments[_i].min_true.param = 0;
-            ws.segments[_i].nearest_segment = NULL;
         }
 
 
@@ -348,7 +342,9 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
                         point_data[prev_points + 1].x, point_data[prev_points + 1].y,
                         point_data[prev_points + 2].x, point_data[prev_points + 2].y);
             }
-            add_segment(prev, cur, s, cur_points, cur->npoints, cur->color, p);
+            // add_segment(prev, cur, s, cur_points, cur->npoints, cur->color, p);
+            add_segment(prev_npoints, prev_points, cur_npoints, cur_points, 
+                        s_npoints, point_index, cur_color, p);
             prev = cur;
             cur = s;
             NEXT_SEGMENT(s);
@@ -378,12 +374,13 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
     output[y * stride + x] = pixel;
 }
 
-void add_segment(segment *prev, segment *cur, segment *next,
-                 int cur_points,
-                 int npoints, int color, vec2 point) {
+void add_segment(int prev_npoints, int prev_points,
+                 int cur_npoints, int cur_points,
+                 int next_npoints, int next_points,
+                 int color, vec2 point) {
 
     segment_distance d;
-    if (npoints == 2)
+    if (cur_npoints == 2)
         d = signed_distance_linear(point_data[cur_points],
                                    point_data[cur_points + 1], point);
     else
@@ -391,17 +388,20 @@ void add_segment(segment *prev, segment *cur, segment *next,
                                  point_data[cur_points + 1],
                                  point_data[cur_points + 2], point);
 
-
     if (color & RED)
-        add_segment_true_distance(IDX_CURR * 3 + IDX_RED, cur, d);
+        add_segment_true_distance(IDX_CURR * 3 + IDX_RED, cur_npoints, cur_points, d);
     if (color & GREEN)
-        add_segment_true_distance(IDX_CURR * 3 + IDX_GREEN, cur, d);
+        add_segment_true_distance(IDX_CURR * 3 + IDX_GREEN, cur_npoints, cur_points, d);
     if (color & BLUE)
-        add_segment_true_distance(IDX_CURR * 3 + IDX_BLUE, cur, d);
+        add_segment_true_distance(IDX_CURR * 3 + IDX_BLUE, cur_npoints, cur_points, d);
 
-    if (point_facing_edge(prev, cur, next, point, d.param)) {
+    // if (point_facing_edge(prev, cur, next, point, d.param)) {
+    if (point_facing_edge2(prev_npoints, prev_points,
+                           cur_npoints, cur_points,
+                           next_npoints, next_points,
+                           point, d.param)) {
 
-        distance_t pd = distance_to_pseudo_distance(cur, d, point);
+        distance_t pd = distance_to_pseudo_distance(cur_npoints, cur_points, d, point);
         if (color & RED)
             add_segment_pseudo_distance(IDX_CURR * 3 + IDX_RED, pd);
         if (color & GREEN)
@@ -414,7 +414,8 @@ void add_segment(segment *prev, segment *cur, segment *next,
 float compute_distance(int segment_index, vec2 point) {
     float min_distance = ws.segments[segment_index].min_true.d.x < 0 ?
         ws.segments[segment_index].min_negative.x : ws.segments[segment_index].min_positive.x;
-    distance_t d = distance_to_pseudo_distance(ws.segments[segment_index].nearest_segment,
+    distance_t d = distance_to_pseudo_distance(ws.segments[segment_index].nearest_npoints,
+                                                ws.segments[segment_index].nearest_points,
                                                ws.segments[segment_index].min_true, point);
     if (fabs(d.x) < fabs(min_distance))
         min_distance = d.x;
@@ -424,7 +425,9 @@ float compute_distance(int segment_index, vec2 point) {
 void merge_segment(int s, int other) {
     if (less(ws.segments[other].min_true.d, ws.segments[s].min_true.d)) {
         ws.segments[s].min_true = ws.segments[other].min_true;
-        ws.segments[s].nearest_segment = ws.segments[other].nearest_segment;
+        
+        ws.segments[s].nearest_npoints = ws.segments[other].nearest_npoints;
+        ws.segments[s].nearest_points = ws.segments[other].nearest_points;
     }
     if (less(ws.segments[other].min_negative, ws.segments[s].min_negative))
         ws.segments[s].min_negative = ws.segments[other].min_negative;
