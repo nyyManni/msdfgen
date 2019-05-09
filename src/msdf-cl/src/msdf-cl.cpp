@@ -22,7 +22,7 @@
 struct workspace {
     struct {
         segment_distance min_true;
-        distance_t min_negative, min_positive;
+        vec2 min_negative, min_positive;
         int nearest_points;
         int nearest_npoints;
     } segments[4 * 3];
@@ -45,14 +45,13 @@ static inline vec3 to_pixel(multi_distance d, float range) {
     return vec3(d.r / range + 0.5f, d.g / range + 0.5f, d.b / range + 0.5f);
 }
 
-void add_segment(
-                 int prev_npoints, int prev_points,
+void add_segment(int prev_npoints, int prev_points,
                  int cur_npoints, int cur_points,
                  int next_npoints, int next_points,
                  int color, vec2 point);
 void set_contour_edge(int, vec2);
 
-bool less(distance_t a, distance_t b) {
+bool less(vec2 a, vec2 b) {
     return fabs(a.x) < fabs(b.x) || (fabs(a.x) == fabs(b.x) && a.y < b.y);
 }
 void add_segment_true_distance(int segment_index, int npoints, int points, segment_distance d) {
@@ -64,17 +63,20 @@ void add_segment_true_distance(int segment_index, int npoints, int points, segme
     ws.segments[segment_index].nearest_npoints = is_less ? npoints :  ws.segments[segment_index].nearest_npoints;
 }
 
-void add_segment_pseudo_distance(int segment_index, distance_t d) {
-    distance_t *min_pseudo = d.x < 0 ? &(ws.segments[segment_index].min_negative) : &(ws.segments[segment_index].min_positive);
+segment_distance signed_distance_linear(vec2 p1, vec2 p2, vec2 origin);
+segment_distance signed_distance_quad(vec2 p1, vec2 p2, vec2 p3, vec2 origin);
+
+void add_segment_pseudo_distance(int segment_index, vec2 d) {
+    vec2 *min_pseudo = d.x < 0 ? &(ws.segments[segment_index].min_negative) : &(ws.segments[segment_index].min_positive);
     *min_pseudo = less(d, *min_pseudo) ? d : *min_pseudo;
 }
 
-distance_t distance_to_pseudo_distance(int npoints, int points, segment_distance d, vec2 p) {
+vec2 distance_to_pseudo_distance(int npoints, int points, segment_distance d, vec2 p) {
     if (d.param >= 0 && d.param <= 1)
         return d.d;
 
-    vec2 dir = normalize(segment_direction2(points, npoints, d.param < 0 ? 0 : 1));
-    vec2 aq = p - segment_point2(points, npoints, d.param < 0 ? 0 : 1);
+    vec2 dir = normalize(segment_direction(points, npoints, d.param < 0 ? 0 : 1));
+    vec2 aq = p - segment_point(points, npoints, d.param < 0 ? 0 : 1);
     float ts = dot(aq, dir);
     if (d.param < 0 ? ts < 0 : ts > 0) {
         float pseudo_distance = cross_(aq, dir);
@@ -86,24 +88,24 @@ distance_t distance_to_pseudo_distance(int npoints, int points, segment_distance
     return d.d;
 }
 
-bool point_facing_edge2(int prev_npoints, int prev_points,
+bool point_facing_edge(int prev_npoints, int prev_points,
                         int cur_npoints, int cur_points,
                         int next_npoints, int next_points, vec2 p, float param) {
 
     if (param >= 0 && param <= 1)
         return true;
 
-    vec2 prev_edge_dir = -normalize(segment_direction2(prev_points, prev_npoints, 1));
-    vec2 edge_dir = normalize(segment_direction2(cur_points, cur_npoints, param < 0 ? 0 : 1)) * (param < 0 ? 1 : -1);
-    vec2 next_edge_dir = normalize(segment_direction2(next_points, next_npoints, 0));
-    vec2 point_dir = p - segment_point2(cur_points, cur_npoints, param < 0 ? 0 : 1);
+    vec2 prev_edge_dir = -normalize(segment_direction(prev_points, prev_npoints, 1));
+    vec2 edge_dir = normalize(segment_direction(cur_points, cur_npoints, param < 0 ? 0 : 1)) * (param < 0 ? 1 : -1);
+    vec2 next_edge_dir = normalize(segment_direction(next_points, next_npoints, 0));
+    vec2 point_dir = p - segment_point(cur_points, cur_npoints, param < 0 ? 0 : 1);
     return dot(point_dir, edge_dir) >=
            dot(point_dir, param < 0 ? prev_edge_dir : next_edge_dir);
 }
 
 multi_distance get_pixel_distance(vec2);
 
-void calculate_pixel(struct shape *, vec3 *, int, int, int, vec2, vec2, float);
+void calculate_pixel(vec3 *, int, int, int, vec2, vec2, float);
 
 static inline vec2 Point2_to_vec2(msdfgen::Point2 p) { return vec2(p.x, p.y); }
 int main() {
@@ -126,27 +128,19 @@ int main() {
 
     size_t point_data_size = 0;
     size_t metadata_size = 1;
-    size_t input_size = sizeof(struct shape);
     for (msdfgen::Contour &c : shape.contours) {
-        input_size += sizeof(contour);
         metadata_size += 2; /* winding + nsegments */
         for (msdfgen::EdgeHolder &e : c.edges) {
             metadata_size += 2; /* color + npoints */
-
-            input_size += sizeof(segment);
             if (dynamic_cast<msdfgen::LinearSegment *>(e.edgeSegment)) {
                 point_data_size += 2 * sizeof(vec2);
-                input_size += 2 * sizeof(vec2);
             } else if (dynamic_cast<msdfgen::QuadraticSegment *>(e.edgeSegment)) {
                 point_data_size += 3 * sizeof(vec2);
-                input_size += 3 * sizeof(vec2);
             } else if (dynamic_cast<msdfgen::CubicSegment *>(e.edgeSegment)) {
                 return -1;
-                // input_size += 4 * sizeof(vec2);
             }
         }
     }
-    void *input_buffer = malloc(input_size);
     point_data = (vec2 *)malloc(point_data_size);
     metadata = (unsigned char *)malloc(metadata_size);
     fprintf(stderr, "point data size: %lu\n", point_data_size);
@@ -154,56 +148,31 @@ int main() {
     size_t _p = 0;
     size_t _m = 0;
 
-    struct shape *glyph_data = (struct shape *)input_buffer;
     {
         metadata[_m++] = shape.contours.size();
-        glyph_data->ncontours = shape.contours.size();
-        contour *c = glyph_data->contours;
         for (msdfgen::Contour &_c : shape.contours) {
             metadata[_m++] = (unsigned char)_c.winding() + 1;
             metadata[_m++] = _c.edges.size();
-            c->nsegments = _c.edges.size();
-            c->winding = _c.winding();
 
             _p++;  /* The first segment should also have the first point */
 
-            segment *s = c->segments;
             for (msdfgen::EdgeHolder &_e : _c.edges) {
 
                 _p--; /* Each consecutive segment share one point */
 
                 metadata[_m++] = _e->color;
-                s->color = (unsigned char)_e->color;
                 if (auto p = dynamic_cast<msdfgen::LinearSegment *>(_e.edgeSegment)) {
                     metadata[_m++] = 2;
-                    s->npoints = 2;
-                    s->points[0] = Point2_to_vec2(p->p[0]);
-                    s->points[1] = Point2_to_vec2(p->p[1]);
                     point_data[_p++] = Point2_to_vec2(p->p[0]);
                     point_data[_p++] = Point2_to_vec2(p->p[1]);
                 } else if (auto p = dynamic_cast<msdfgen::QuadraticSegment *>(
                                _e.edgeSegment)) {
                     metadata[_m++] = 3;
-                    s->npoints = 3;
-                    s->points[0] = Point2_to_vec2(p->p[0]);
-                    s->points[1] = Point2_to_vec2(p->p[1]);
-                    s->points[2] = Point2_to_vec2(p->p[2]);
                     point_data[_p++] = Point2_to_vec2(p->p[0]);
                     point_data[_p++] = Point2_to_vec2(p->p[1]);
                     point_data[_p++] = Point2_to_vec2(p->p[2]);
-                // } else if (auto p =
-                //                dynamic_cast<msdfgen::CubicSegment *>(_e.edgeSegment)) {
-                //     s->npoints = 4;
-                //     s->points[0] = Point2_to_vec2(p->p[0]);
-                //     s->points[1] = Point2_to_vec2(p->p[1]);
-                //     s->points[2] = Point2_to_vec2(p->p[2]);
-                //     s->points[3] = Point2_to_vec2(p->p[3]);
                 }
-                /* Move s to the beginning of the next segment */
-                s = (segment *)(((vec2 *)(s + 1)) + s->npoints);
             }
-            /* s already points to the following contour in the list */
-            c = (contour *)s;
         }
     }
     fprintf(stderr, "point data size (real): %lu\n", _p * sizeof(vec2));
@@ -224,14 +193,14 @@ int main() {
 
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            calculate_pixel(glyph_data, output, x, y, w, scale, translate, range);
+            calculate_pixel(output, x, y, w, scale, translate, range);
         }
     }
 
     return 0;
 }
 
-void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride,
+void calculate_pixel(vec3 *output, int x, int y, int stride,
                      vec2 scale, vec2 translate, float range) {
     vec2 p = vec2((x + 0.5f) / scale.x - translate.x, (y + 0.5f) / scale.y - translate.y);
 
@@ -259,16 +228,12 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
 
     unsigned char ncontours = metadata[meta_index++];
 
-    contour *c = shape->contours;
-    for (int _i = 0; _i < shape->ncontours; ++_i) {
+    for (int _i = 0; _i < ncontours; ++_i) {
 
         char winding = (char)metadata[meta_index++] - 1;
         unsigned char nsegments = metadata[meta_index++];
 
-        if (!c->nsegments) {
-            c += 1;
-            continue;
-        }
+        if (!nsegments) continue;
         for (int _i = 0; _i < 3; ++_i) {
             ws.segments[_i].min_negative.x = -INFINITY;
             ws.segments[_i].min_negative.y = 1;
@@ -279,25 +244,6 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
             ws.segments[_i].min_true.param = 0;
         }
 
-
-        segment *s = c->segments;
-
-        /* Initialize cur to the last segment in the list */
-        segment *cur = s;
-        for (int _i = 0; _i < c->nsegments - 1; ++_i)
-            NEXT_SEGMENT(cur);
-
-
-        /*
-         * Initialize prev to the second last segment in the list, or the first
-         * one if there are less than two segments.
-         */
-        segment *prev = s;
-        for (int _i = 0; _i < c->nsegments - 2 && c->nsegments >= 2; ++_i)
-            NEXT_SEGMENT(prev);
-
-        // return;
-        // int s_points = point_index;
         unsigned char s_color = metadata[meta_index + 0];
         unsigned char s_npoints = metadata[meta_index + 1];
 
@@ -318,37 +264,10 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
             prev_points += npoints - 1;
         }
 
-        fprintf(stderr, "=============================================\n");
-        for (int _i = 0; _i < c->nsegments; ++_i) {
+        for (int _i = 0; _i < nsegments; ++_i) {
 
-            fprintf(stderr, "=============================================\n");
-            if (prev->npoints == 2) {
-                fprintf(stderr, "s: %.2f %.2f, %.2f %.2f\n",
-                        prev->points[0].x, prev->points[0].y,
-                        prev->points[1].x, prev->points[1].y);
-            } else {
-                fprintf(stderr, "s: %.2f %.2f, %.2f %.2f, %.2f %.2f\n",
-                        prev->points[0].x, prev->points[0].y,
-                        prev->points[1].x, prev->points[1].y,
-                        prev->points[2].x, prev->points[2].y);
-            }
-            if (prev_npoints == 2) {
-                fprintf(stderr, "s: %.2f %.2f, %.2f %.2f\n",
-                        point_data[prev_points].x, point_data[prev_points].y,
-                        point_data[prev_points + 1].x, point_data[prev_points + 1].y);
-            } else {
-                fprintf(stderr, "s: %.2f %.2f, %.2f %.2f, %.2f %.2f\n",
-                        point_data[prev_points].x, point_data[prev_points].y,
-                        point_data[prev_points + 1].x, point_data[prev_points + 1].y,
-                        point_data[prev_points + 2].x, point_data[prev_points + 2].y);
-            }
-            // add_segment(prev, cur, s, cur_points, cur->npoints, cur->color, p);
             add_segment(prev_npoints, prev_points, cur_npoints, cur_points, 
                         s_npoints, point_index, cur_color, p);
-            prev = cur;
-            cur = s;
-            NEXT_SEGMENT(s);
-
 
             prev_points = cur_points;
             prev_npoints = cur_npoints;
@@ -363,9 +282,6 @@ void calculate_pixel(struct shape *shape, vec3 *output, int x, int y, int stride
         point_index += 1;
 
         set_contour_edge(winding, p);
-
-        /* s now points to the next contour structure (if any) */
-        c = (contour *)s;
     }
 
     multi_distance d = get_pixel_distance(p);
@@ -395,13 +311,12 @@ void add_segment(int prev_npoints, int prev_points,
     if (color & BLUE)
         add_segment_true_distance(IDX_CURR * 3 + IDX_BLUE, cur_npoints, cur_points, d);
 
-    // if (point_facing_edge(prev, cur, next, point, d.param)) {
-    if (point_facing_edge2(prev_npoints, prev_points,
+    if (point_facing_edge(prev_npoints, prev_points,
                            cur_npoints, cur_points,
                            next_npoints, next_points,
                            point, d.param)) {
 
-        distance_t pd = distance_to_pseudo_distance(cur_npoints, cur_points, d, point);
+        vec2 pd = distance_to_pseudo_distance(cur_npoints, cur_points, d, point);
         if (color & RED)
             add_segment_pseudo_distance(IDX_CURR * 3 + IDX_RED, pd);
         if (color & GREEN)
@@ -414,7 +329,7 @@ void add_segment(int prev_npoints, int prev_points,
 float compute_distance(int segment_index, vec2 point) {
     float min_distance = ws.segments[segment_index].min_true.d.x < 0 ?
         ws.segments[segment_index].min_negative.x : ws.segments[segment_index].min_positive.x;
-    distance_t d = distance_to_pseudo_distance(ws.segments[segment_index].nearest_npoints,
+    vec2 d = distance_to_pseudo_distance(ws.segments[segment_index].nearest_npoints,
                                                 ws.segments[segment_index].nearest_points,
                                                ws.segments[segment_index].min_true, point);
     if (fabs(d.x) < fabs(min_distance))
@@ -499,4 +414,88 @@ multi_distance get_pixel_distance(vec2 point) {
         d = shape_distance;
 
     return d;
+}
+
+segment_distance signed_distance_linear(vec2 p0, vec2 p1, vec2 origin) {
+    vec2 aq = origin - p0;
+    vec2 ab = p1 - p0;
+    float param = dot(aq, ab) / dot(ab, ab);
+    vec2 eq = (param > .5 ? p1 : p0) - origin;
+    float endpointDistance = length(eq);
+    if (param > 0 && param < 1) {
+        float orthoDistance = dot(orthonormal(ab, false), aq);
+        if (fabs(orthoDistance) < endpointDistance)
+            return {vec2(orthoDistance, 0), param};
+    }
+    return {vec2(sign(cross_(aq, ab)) * endpointDistance,
+                       fabs(dot(normalize(ab), normalize(eq)))),
+            param};
+}
+
+segment_distance signed_distance_quad(vec2 p0, vec2 p1, vec2 p2, vec2 origin) {
+    vec2 qa = p0 - origin;
+    vec2 ab = p1 - p0;
+    vec2 br = p2 - p1 - ab;
+    float a = dot(br, br);
+    float b = 3 * dot(ab, br);
+    float c = 2 * dot(ab, ab) + dot(qa, br);
+    float d = dot(qa, ab);
+    float tttt[3];
+    float _a = b / a;
+    int solutions;
+
+    float a2 = _a * _a;
+    float q = (a2 - 3 * (c / a)) / 9;
+    float r = (_a * (2 * a2 - 9 * (c / a)) + 27 * (d / a)) / 54;
+    float r2 = r * r;
+    float q3 = q * q * q;
+    float A, B;
+    _a /= 3;
+    float t = r / sqrt(q3);
+    t = t < -1 ? -1 : t;
+    t = t > 1 ? 1 : t;
+    t = acos(t);
+    A = -pow(fabs(r) + sqrt(r2 - q3), 1 / 3.);
+    A = r < 0 ? -A : A;
+    B = A == 0 ? 0 : q / A;
+    if (r2 < q3) {
+        q = -2 * sqrt(q);
+        tttt[0] = q * cos(t / 3) - _a;
+        tttt[1] = q * cos((t + 2 * M_PI) / 3) - _a;
+        tttt[2] = q * cos((t - 2 * M_PI) / 3) - _a;
+        solutions =  3;
+    } else {
+        tttt[0] = (A + B) - _a;
+        tttt[1] = -0.5 * (A + B) - _a;
+        tttt[2] = 0.5 * sqrt(3.) * (A - B);
+        solutions = fabs(tttt[2]) < 1e-14 ? 2 : 1;
+    }
+
+    float minDistance = sign(cross_(ab, qa)) * length(qa); // distance from A
+    float param = -dot(qa, ab) / dot(ab, ab);
+    float distance = sign(cross_(p2 - p1, p2 - origin)) * length(p2 - origin); // distance from B
+    if (fabs(distance) < fabs(minDistance)) {
+        minDistance = distance;
+        param = dot(origin - p1, p2 - p1) / dot(p2 - p1, p2 - p1);
+    }
+    for (int i = 0; i < solutions; ++i)
+        {
+        if (tttt[i] > 0 && tttt[i] < 1) {
+            vec2 endpoint = p0 + ab * 2 * tttt[i] + br * tttt[i] * tttt[i];
+            float distance =
+                sign(cross_(p2 - p0, endpoint - origin)) *
+                length(endpoint - origin);
+            if (fabs(distance) <= fabs(minDistance)) {
+                minDistance = distance;
+                param = tttt[i];
+            }
+        }
+    }
+
+    if (param >= 0 && param <= 1)
+        return {vec2(minDistance, 0), param};
+    if (param < .5)
+        return {vec2(minDistance, fabs(dot(normalize(ab), normalize(qa)))), param};
+    return {vec2(minDistance, fabs(dot(normalize(p2 - p1),
+                                             normalize(p2 - origin)))), param};
 }
