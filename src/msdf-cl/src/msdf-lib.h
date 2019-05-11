@@ -39,6 +39,9 @@ typedef struct vec2 {
     struct vec2 operator*(float value) {
         return vec2(x * value, y * value);
     }
+    struct vec2 operator/(float value) {
+        return vec2(x / value, y / value);
+    }
 } vec2;
 
 
@@ -51,49 +54,59 @@ typedef struct vec3 {
 
     vec3() : r(0), g(0), b(0) {}
     vec3(float x, float y, float z) : r(x), g(y), b(z) {}
+
+    struct vec3 operator*(float value) {
+        return vec3(r * value, g * value, b * value);
+    }
+    struct vec3 operator/(float value) {
+        return vec3(r / value, g / value, b / value);
+    }
+    struct vec3 operator+(float value) {
+        return vec3(r + value, g + value, b + value);
+    }
+
 } vec3;
 
 
 typedef struct segment_distance {
-    vec2 d;
-    float param;
+    /* union { */
+        vec2 xy;
+    /*     struct { */
+    /*         float x; */
+    /*         float y; */
+    /*     }; */
+    /* }; */
+    float z;
 } segment_distance;
-
-struct multi_distance {
-    float r;
-    float g;
-    float b;
-};
 
 
 static inline float min(float a, float b) { return a < b ? a : b; }
 static inline float max(float a, float b) { return a > b ? a : b; }
 
-static inline float median(float a, float b, float c) {
-    return max(min(a, b), min(max(a, b), c));
+static inline float median(vec3 d) {
+    return max(min(d.r, d.g), min(max(d.r, d.g), d.b));
 }
-
 
 static inline float dot(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
 
 static inline float cross_(vec2 a, vec2 b) { return a.x * b.y - a.y * b.x; }
 
 static inline float length(vec2 v) { return sqrt(v.x * v.x + v.y * v.y); }
-
-static inline int sign(float n) { return 2 * (n > float(0)) - 1; }
-
-static inline vec2 normalize(vec2 v) {
-    float len = length(v);
-    return vec2(v.x / len, v.y / len);
+static inline int sign(float n) {
+    if (n > 0.0) return 1.0;
+    if (n < 0.0) return -1.0;
+    return 0.0;
 }
 
-static inline vec2 orthonormal(vec2 v, bool polarity /* , bool allowZero = false */) {
+static inline vec2 normalize(vec2 v) {return v / length(v);}
+
+static inline vec2 orthonormal(vec2 v) {
     float len = length(v);
-    return polarity ? vec2(-v.y / len, v.x / len) : vec2(v.y / len, -v.x / len);
+    return vec2(v.y / len, -v.x / len);
 }
 
 static inline vec2 mix(vec2 a, vec2 b, float weight) {
-    return vec2(a * (float(1) - weight) + b * weight);
+    return vec2(a * (1.0 - weight) + b * weight);
 }
 
 static inline vec2 segment_direction(int points, int npoints, float param) {
