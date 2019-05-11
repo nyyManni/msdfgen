@@ -18,15 +18,19 @@
 #define IDX_RED   0
 #define IDX_GREEN 1
 #define IDX_BLUE  2
+#define IDX_NEGATIVE 0
+#define IDX_POSITIVE 1
 
 struct workspace {
     struct {
         segment_distance min_true;
-        vec2 min_negative, min_positive;
+        // vec2 min_negative, min_positive;
+        vec2 mins[2];
         int nearest_points;
         int nearest_npoints;
     } segments[4 * 3];
 
+    multi_distance maximums[2];
     multi_distance max_inner;
     multi_distance max_outer;
     multi_distance min_absolute;
@@ -35,6 +39,7 @@ struct workspace {
 
 vec2 *point_data;
 unsigned char *metadata;
+vec3 *output;
 
 
 static inline float resolve_multi_distance(multi_distance d) {
@@ -67,8 +72,13 @@ segment_distance signed_distance_linear(vec2 p1, vec2 p2, vec2 origin);
 segment_distance signed_distance_quad(vec2 p1, vec2 p2, vec2 p3, vec2 origin);
 
 void add_segment_pseudo_distance(int segment_index, vec2 d) {
-    vec2 *min_pseudo = d.x < 0 ? &(ws.segments[segment_index].min_negative) : &(ws.segments[segment_index].min_positive);
-    *min_pseudo = less(d, *min_pseudo) ? d : *min_pseudo;
+
+    // vec2 *min_pseudo = d.x < 0 ? &(ws.segments[segment_index].min_negative) : &(ws.segments[segment_index].min_positive);
+    // *min_pseudo = less(d, *min_pseudo) ? d : *min_pseudo;
+    
+    int i = d.x < 0 ? IDX_NEGATIVE : IDX_POSITIVE;
+    vec2 _d = ws.segments[segment_index].mins[i];
+    ws.segments[segment_index].mins[i] = less(d, _d) ? d : _d;
 }
 
 vec2 distance_to_pseudo_distance(int npoints, int points, segment_distance d, vec2 p) {
@@ -105,11 +115,10 @@ bool point_facing_edge(int prev_npoints, int prev_points,
 
 multi_distance get_pixel_distance(vec2);
 
-void calculate_pixel(vec3 *, int, int, int, vec2, vec2, float);
+void calculate_pixel(int, int, int, vec2, vec2, float);
 
 static inline vec2 Point2_to_vec2(msdfgen::Point2 p) { return vec2(p.x, p.y); }
 int main() {
-    fprintf(stderr, "ws size:%lu\n", sizeof(ws));
 
     msdfgen::Shape shape;
     msdf_font_handle f =
@@ -130,21 +139,23 @@ int main() {
     size_t metadata_size = 1;
     for (msdfgen::Contour &c : shape.contours) {
         metadata_size += 2; /* winding + nsegments */
+
+        point_data_size++;
         for (msdfgen::EdgeHolder &e : c.edges) {
             metadata_size += 2; /* color + npoints */
+            point_data_size--;
             if (dynamic_cast<msdfgen::LinearSegment *>(e.edgeSegment)) {
-                point_data_size += 2 * sizeof(vec2);
+                point_data_size += 2;
             } else if (dynamic_cast<msdfgen::QuadraticSegment *>(e.edgeSegment)) {
-                point_data_size += 3 * sizeof(vec2);
+
+                point_data_size += 3;
             } else if (dynamic_cast<msdfgen::CubicSegment *>(e.edgeSegment)) {
                 return -1;
             }
         }
     }
-    point_data = (vec2 *)malloc(point_data_size);
+    point_data = (vec2 *)malloc(point_data_size * sizeof(vec2));
     metadata = (unsigned char *)malloc(metadata_size);
-    fprintf(stderr, "point data size: %lu\n", point_data_size);
-    fprintf(stderr, "metadata size: %lu\n", metadata_size);
     size_t _p = 0;
     size_t _m = 0;
 
@@ -189,18 +200,18 @@ int main() {
     msdfgen::Bitmap<msdfgen::FloatRGB> msdf(w, h);
     msdfgen::generateMSDF(msdf, shape, range, 1.0, msdfgen::Vector2(0.0, 0.0), 1.001, true);
 
-    vec3 *output = (vec3 *)malloc(h * w * sizeof(vec3));
+    output = (vec3 *)malloc(h * w * sizeof(vec3));
 
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            calculate_pixel(output, x, y, w, scale, translate, range);
+            calculate_pixel(x, y, w, scale, translate, range);
         }
     }
 
     return 0;
 }
 
-void calculate_pixel(vec3 *output, int x, int y, int stride,
+void calculate_pixel(int x, int y, int stride,
                      vec2 scale, vec2 translate, float range) {
     vec2 p = vec2((x + 0.5f) / scale.x - translate.x, (y + 0.5f) / scale.y - translate.y);
 
@@ -215,10 +226,16 @@ void calculate_pixel(vec3 *output, int x, int y, int stride,
     ws.min_absolute.b = -INFINITY;
 
     for (int _i = 0; _i < (4 * 3); ++_i) {
-        ws.segments[_i].min_negative.x = -INFINITY;
-        ws.segments[_i].min_negative.y = 1;
-        ws.segments[_i].min_positive.x = -INFINITY;
-        ws.segments[_i].min_positive.y = 1;
+        // ws.segments[_i].min_negative.x = -INFINITY;
+        // ws.segments[_i].min_negative.y = 1;
+        // ws.segments[_i].min_positive.x = -INFINITY;
+        // ws.segments[_i].min_positive.y = 1;
+
+        ws.segments[_i].mins[0].x = -INFINITY;
+        ws.segments[_i].mins[0].y = 1;
+        ws.segments[_i].mins[1].x = -INFINITY;
+        ws.segments[_i].mins[1].y = 1;
+
         ws.segments[_i].min_true.d.x = -INFINITY;
         ws.segments[_i].min_true.d.y = 1;
         ws.segments[_i].min_true.param = 0;
@@ -235,10 +252,16 @@ void calculate_pixel(vec3 *output, int x, int y, int stride,
 
         if (!nsegments) continue;
         for (int _i = 0; _i < 3; ++_i) {
-            ws.segments[_i].min_negative.x = -INFINITY;
-            ws.segments[_i].min_negative.y = 1;
-            ws.segments[_i].min_positive.x = -INFINITY;
-            ws.segments[_i].min_positive.y = 1;
+            // ws.segments[_i].min_negative.x = -INFINITY;
+            // ws.segments[_i].min_negative.y = 1;
+            // ws.segments[_i].min_positive.x = -INFINITY;
+            // ws.segments[_i].min_positive.y = 1;
+            
+            ws.segments[_i].mins[0].x = -INFINITY;
+            ws.segments[_i].mins[0].y = 1;
+            ws.segments[_i].mins[1].x = -INFINITY;
+            ws.segments[_i].mins[1].y = 1;
+
             ws.segments[_i].min_true.d.x = -INFINITY;
             ws.segments[_i].min_true.d.y = 1;
             ws.segments[_i].min_true.param = 0;
@@ -327,8 +350,12 @@ void add_segment(int prev_npoints, int prev_points,
 }
 
 float compute_distance(int segment_index, vec2 point) {
-    float min_distance = ws.segments[segment_index].min_true.d.x < 0 ?
-        ws.segments[segment_index].min_negative.x : ws.segments[segment_index].min_positive.x;
+    
+    int i = ws.segments[segment_index].min_true.d.x < 0 ? IDX_NEGATIVE : IDX_POSITIVE;
+    float min_distance = ws.segments[segment_index].mins[i].x;
+
+    // float min_distance = ws.segments[segment_index].min_true.d.x < 0 ?
+    //     ws.segments[segment_index].min_negative.x : ws.segments[segment_index].min_positive.x;
     vec2 d = distance_to_pseudo_distance(ws.segments[segment_index].nearest_npoints,
                                                 ws.segments[segment_index].nearest_points,
                                                ws.segments[segment_index].min_true, point);
@@ -344,10 +371,10 @@ void merge_segment(int s, int other) {
         ws.segments[s].nearest_npoints = ws.segments[other].nearest_npoints;
         ws.segments[s].nearest_points = ws.segments[other].nearest_points;
     }
-    if (less(ws.segments[other].min_negative, ws.segments[s].min_negative))
-        ws.segments[s].min_negative = ws.segments[other].min_negative;
-    if (less(ws.segments[other].min_positive, ws.segments[s].min_positive)) {
-        ws.segments[s].min_positive = ws.segments[other].min_positive;
+    if (less(ws.segments[other].mins[IDX_NEGATIVE], ws.segments[s].mins[IDX_NEGATIVE]))
+        ws.segments[s].mins[IDX_NEGATIVE] = ws.segments[other].mins[IDX_NEGATIVE];
+    if (less(ws.segments[other].mins[IDX_POSITIVE], ws.segments[s].mins[IDX_POSITIVE])) {
+        ws.segments[s].mins[IDX_POSITIVE] = ws.segments[other].mins[IDX_POSITIVE];
     }
 }
 
