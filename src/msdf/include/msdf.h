@@ -122,6 +122,20 @@ void msdf_release_glyph(msdf_glyph_handle g);
  */
 int msdf_dump_glyph(msdf_glyph_handle g, const char *filename);
 
+/**
+ * Calculate sizes for storing the metadata buffer and point data buffer.
+ * Return 0 in case of success.
+ */
+int msdf_glyph_buffer_size(msdf_font_handle f, int c, size_t *meta_size,
+                           size_t *buf_size);
+
+/**
+ * Serializes the given character data onto the buffers so that it can be sent
+ * to the GPU. Return 0 in case of success.
+ */
+int msdf_serialize_glyph(msdf_font_handle f, int c, void *meta, void *buf, int *width,
+                         int *height);
+
 #ifdef __cplusplus
 }
 #endif

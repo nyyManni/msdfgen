@@ -1,5 +1,5 @@
-#include "msdf-lib.h"
 #include "msdf.h"
+#include "msdf-lib.h"
 #include "msdfgen-ext.h"
 #include "msdfgen.h"
 #include <Contour.h>
@@ -35,12 +35,17 @@ struct workspace {
 } ws;
 
 vec2 *point_data;
+vec2 *point_data2;
 unsigned char *metadata;
+unsigned char *metadata2;
 vec3 *output;
 
-void add_segment(int prev_npoints, int prev_points, int cur_npoints, int cur_points,
-                 int next_npoints, int next_points, int color, vec2 point);
+void add_segment(int, int, int, int, int, int, int, vec2);
 void set_contour_edge(int, vec2);
+vec3 get_pixel_distance(vec2);
+void calculate_pixel(int, int, int, vec2, vec2, float);
+segment_distance signed_distance_linear(vec2, vec2, vec2);
+segment_distance signed_distance_quad(vec2, vec2, vec2, vec2);
 
 bool less(vec2 a, vec2 b) {
     return fabs(a.x) < fabs(b.x) || (fabs(a.x) == fabs(b.x) && a.y < b.y);
@@ -58,8 +63,6 @@ void add_segment_true_distance(int segment_index, int npoints, int points,
         is_less ? npoints : ws.segments[segment_index].nearest_npoints;
 }
 
-segment_distance signed_distance_linear(vec2 p1, vec2 p2, vec2 origin);
-segment_distance signed_distance_quad(vec2 p1, vec2 p2, vec2 p3, vec2 origin);
 
 void add_segment_pseudo_distance(int segment_index, vec2 d) {
     int i = d.x < 0 ? IDX_NEGATIVE : IDX_POSITIVE;
@@ -100,100 +103,173 @@ bool point_facing_edge(int prev_npoints, int prev_points, int cur_npoints, int c
            dot(point_dir, param < 0 ? prev_edge_dir : next_edge_dir);
 }
 
-vec3 get_pixel_distance(vec2);
+// struct __glyph_data_ctx {
+//     bool allocated;
+//     int meta_size;
+//     int data_size;
+//     int current_contour_meta;
+// };
 
-void calculate_pixel(int, int, int, vec2, vec2, float);
+// static inline float shoelace(const vec2 a, const vec2 b) {
+//     return (b.x - a.x) * (a.y + b.y);
+// }
+// static void update_winding(struct __glyph_data_ctx *ctx, int npoints, int points) {
+//     float total = 0;
+//     if (metadata2[ctx->current_contour_meta + 1] == 1) {
+//         /* First segment, calculate case nsegments == 1 */
+//         vec2 a = segment_point(points, npoints, 0.0);
+//         vec2 b = segment_point(points, npoints, 1.0 / 3.0);
+//         vec2 c = segment_point(points, npoints, 2.0 / 3.0);
+//     } else if (metadata2[ctx->current_contour_meta + 1] == 2) {
+//         /* Second segment, calculate case nsegments == 2 */
+//     } else {
+//         /* Third or later segment, update case nsegments == n */
+//     }
+//     metadata2[ctx->current_contour_meta + 1] = sign(total);
+// }
 
-static inline vec2 Point2_to_vec2(msdfgen::Point2 p) { return vec2(p.x, p.y); }
+// static int __add_contour_size(const FT_Vector *to, void *user) {
+//     struct __glyph_data_ctx *ctx = (struct __glyph_data_ctx *)user;
+//     if (ctx->allocated) {
+//         point_data2[ctx->data_size].x = to->x / 64.0;
+//         point_data2[ctx->data_size].y = to->y / 64.0;
+        
+//         metadata2[ctx->meta_size] = 0; /* winding */
+//         metadata2[ctx->meta_size + 1] = 0;
+//         ctx->current_contour_meta = ctx->meta_size;
+//     }
+
+//     ctx->data_size += 1;
+//     ctx->meta_size += 2;  /* winding + nsegments */
+//     return 0;
+// }
+// static int __add_linear_size(const FT_Vector *to, void *user) {
+//     struct __glyph_data_ctx *ctx = (struct __glyph_data_ctx *)user;
+//     if (ctx->allocated) {
+//         point_data2[ctx->data_size].x = to->x / 64.0;
+//         point_data2[ctx->data_size].y = to->y / 64.0;
+//         metadata2[ctx->current_contour_meta + 1] += 1;
+//         metadata2[ctx->meta_size] = 0;  /* color */
+//         metadata2[ctx->meta_size + 1] = 2;  /* npoints */
+//     }
+//     ctx->data_size += 1;
+//     ctx->meta_size += 2;  /* color + npoints */
+//     return 0;
+// }
+// static int __add_quad_size(const FT_Vector *control, const FT_Vector *to, void *user) {
+//     struct __glyph_data_ctx *ctx = (struct __glyph_data_ctx *)user;
+//     if (ctx->allocated) {
+//         point_data2[ctx->data_size].x = to->x / 64.0;
+//         point_data2[ctx->data_size].y = to->y / 64.0;
+//         point_data2[ctx->data_size + 1].x = to->x / 64.0;
+//         point_data2[ctx->data_size + 1].y = to->y / 64.0;
+
+//         metadata2[ctx->current_contour_meta + 1] += 1;
+//         metadata2[ctx->meta_size] = 0;  /* color */
+//         metadata2[ctx->meta_size + 1] = 3;  /* npoints */
+//     }
+//     ctx->data_size += 2;
+//     ctx->meta_size += 2;  /* color + npoints */
+//     return 0;
+// }
+// static int __add_cubic_size(const FT_Vector *control1, const FT_Vector *control2, 
+//                             const FT_Vector *to, void *s) {
+//     fprintf(stderr, "Cubic segments not supported\n");
+//     return -1;
+// }
+
+// void *msdf_load_glyph(FT_Face face, int code) {
+//     if (FT_Load_Char(face, code, FT_LOAD_NO_SCALE)) return NULL;
+
+//     FT_Outline_Funcs fns;
+//     fns.shift = 0;
+//     fns.delta = 0;
+//     fns.move_to = &__add_contour_size;
+//     fns.line_to = &__add_linear_size;
+//     fns.conic_to = &__add_quad_size;
+//     fns.cubic_to = &__add_cubic_size;
+
+//     /* We need two rounds of decomposing, the first one will just figure out
+//        how much space we need to serialize the glyph, and the second one
+//        serializes it and generates colour mapping for the segments. */
+//     struct __glyph_data_ctx ctx = {0, 0};
+//     if (FT_Outline_Decompose(&face->glyph->outline, &fns, &ctx)) return NULL;
+
+//     point_data2 = (vec2 *)malloc(ctx.data_size * sizeof(vec2));
+//     metadata2 = (unsigned char *)malloc(ctx.meta_size);
+    
+//     ctx.allocated = true;
+//     ctx.meta_size = 0;
+//     ctx.data_size = 0;
+
+//     /* Second round populates the point data. */
+//     if (FT_Outline_Decompose(&face->glyph->outline, &fns, &ctx)) return NULL;
+
+//     /* Calculate windings. */
+//     size_t point_index = 0;
+//     size_t meta_index = 0;
+
+//     unsigned char ncontours = metadata[meta_index++];
+
+//     for (int _i = 0; _i < ncontours; ++_i) {
+
+//         char winding = (char)metadata[meta_index++] - 1;
+//         unsigned char nsegments = metadata[meta_index++];
+
+//         if (!nsegments)
+//             continue;
+        
+//         float total = 0;
+//         if (nsegments == 1) {
+//             // vec2 a
+//         }
+        
+//     }
+
+//     return NULL;
+// }
+
+
+// static inline vec2 Point2_to_vec2(msdfgen::Point2 p) { return vec2(p.x, p.y); }
 int main() {
 
-    msdfgen::Shape shape;
     msdf_font_handle f =
         msdf_load_font("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
-    msdfgen::FontHandle *font = (msdfgen::FontHandle *)f->__handle;
 
-    // msdfgen::loadGlyph(shape, font, '1');
-    msdfgen::loadGlyph(shape, font, 0x00e4);
-    // msdfgen::loadGlyph(shape, font, '#');
-    // msdfgen::loadGlyph(shape, font, '0');
-    // msdfgen::loadGlyph(shape, font, ' ');
-
-    shape.normalize();
-    edgeColoringSimple(shape, 3.0);
-
-    size_t point_data_size = 0;
-    size_t metadata_size = 1;
-    for (msdfgen::Contour &c : shape.contours) {
-        metadata_size += 2; /* winding + nsegments */
-
-        point_data_size++;
-        for (msdfgen::EdgeHolder &e : c.edges) {
-            metadata_size += 2; /* color + npoints */
-            point_data_size--;
-            if (dynamic_cast<msdfgen::LinearSegment *>(e.edgeSegment)) {
-                point_data_size += 2;
-            } else if (dynamic_cast<msdfgen::QuadraticSegment *>(e.edgeSegment)) {
-
-                point_data_size += 3;
-            } else if (dynamic_cast<msdfgen::CubicSegment *>(e.edgeSegment)) {
-                return -1;
-            }
-        }
-    }
-    point_data = (vec2 *)malloc(point_data_size * sizeof(vec2));
+    int character = 0x00e4;
+    size_t point_data_size;
+    size_t metadata_size;
+    msdf_glyph_buffer_size(f, character, &metadata_size, &point_data_size);
+    
+    point_data = (vec2 *)malloc(point_data_size);
     metadata = (unsigned char *)malloc(metadata_size);
-    size_t _p = 0;
-    size_t _m = 0;
-
-    {
-        metadata[_m++] = shape.contours.size();
-        for (msdfgen::Contour &_c : shape.contours) {
-            metadata[_m++] = (unsigned char)_c.winding() + 1;
-            metadata[_m++] = _c.edges.size();
-
-            _p++; /* The first segment should also have the first point */
-
-            for (msdfgen::EdgeHolder &_e : _c.edges) {
-
-                _p--; /* Each consecutive segment share one point */
-
-                metadata[_m++] = _e->color;
-                if (auto p = dynamic_cast<msdfgen::LinearSegment *>(_e.edgeSegment)) {
-                    metadata[_m++] = 2;
-                    point_data[_p++] = Point2_to_vec2(p->p[0]);
-                    point_data[_p++] = Point2_to_vec2(p->p[1]);
-                } else if (auto p = dynamic_cast<msdfgen::QuadraticSegment *>(
-                               _e.edgeSegment)) {
-                    metadata[_m++] = 3;
-                    point_data[_p++] = Point2_to_vec2(p->p[0]);
-                    point_data[_p++] = Point2_to_vec2(p->p[1]);
-                    point_data[_p++] = Point2_to_vec2(p->p[2]);
-                }
-            }
-        }
-    }
-    fprintf(stderr, "point data size (real): %lu\n", _p * sizeof(vec2));
+    
+    int width, height;
+    msdf_serialize_glyph(f, character, metadata, point_data, &width, &height);
 
     vec2 scale = {1.0, 1.0};
     vec2 translate = {0.0, 0.0};
     float range = 4.0;
 
-    float width = font->face->glyph->metrics.width / 64.0;
-    float height = font->face->glyph->metrics.height / 64.0;
     int w = ceil((width + range) * scale.x);
     int h = ceil((height + range) * scale.x);
 
+    output = (vec3 *)malloc(h * w * sizeof(vec3));
+
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x)
+            calculate_pixel(x, y, w, scale, translate, range);
+
+    /* Validate */
+    msdfgen::Shape shape;
+
+    msdfgen::FontHandle *font = (msdfgen::FontHandle *)f->__handle;
+    msdfgen::loadGlyph(shape, font, 0x00e4);
+    shape.normalize();
+    edgeColoringSimple(shape, 3.0);
     msdfgen::Bitmap<msdfgen::FloatRGB> msdf(w, h);
     msdfgen::generateMSDF(msdf, shape, range, 1.0, msdfgen::Vector2(0.0, 0.0), 1.001,
                           true);
-
-    output = (vec3 *)malloc(h * w * sizeof(vec3));
-
-    for (int y = 0; y < h; ++y) {
-        for (int x = 0; x < w; ++x) {
-            calculate_pixel(x, y, w, scale, translate, range);
-        }
-    }
 
     return 0;
 }
@@ -212,15 +288,9 @@ void calculate_pixel(int x, int y, int stride, vec2 scale, vec2 translate, float
     ws.min_absolute.b = -INFINITY;
 
     for (int _i = 0; _i < (4 * 3); ++_i) {
-
         ws.segments[_i].mins[0].x = -INFINITY;
-        // ws.segments[_i].mins[0].y = 1;
         ws.segments[_i].mins[1].x = -INFINITY;
-        // ws.segments[_i].mins[1].y = 1;
-
         ws.segments[_i].min_true.xy.x = -INFINITY;
-        // ws.segments[_i].min_true.xy.y = 1;
-        // ws.segments[_i].min_true.z = 0;
     }
     size_t point_index = 0;
     size_t meta_index = 0;
@@ -234,17 +304,6 @@ void calculate_pixel(int x, int y, int stride, vec2 scale, vec2 translate, float
 
         if (!nsegments)
             continue;
-        // for (int _i = 0; _i < 3; ++_i) {
-
-            // ws.segments[_i].mins[0].x = -INFINITY;
-            // ws.segments[_i].mins[0].y = 1;
-            // ws.segments[_i].mins[1].x = -INFINITY;
-            // ws.segments[_i].mins[1].y = 1;
-
-            // ws.segments[_i].min_true.xy.x = -INFINITY;
-            // ws.segments[_i].min_true.xy.y = 1;
-            // ws.segments[_i].min_true.z = 0;
-        // }
 
         unsigned char s_color = metadata[meta_index + 0];
         unsigned char s_npoints = metadata[meta_index + 1];
@@ -407,8 +466,8 @@ vec3 get_pixel_distance(vec2 point) {
     contour_d = median(contour_distance);
     float d_d = median(d);
 
-    d = (fabs(contour_d) < fabs(d_d)) ? contour_distance : d;
-    d = (median(d) == median(shape_distance)) ? shape_distance : d;
+    d = fabs(contour_d) < fabs(d_d) ? contour_distance : d;
+    d = median(d) == median(shape_distance) ? shape_distance : d;
 
     return d;
 }
@@ -488,6 +547,6 @@ segment_distance signed_distance_quad(vec2 p0, vec2 p1, vec2 p2, vec2 origin) {
     vec2 v = vec2(minDistance, 0);
     v.y = param > 1 ? fabs(dot(normalize(p2 - p1), normalize(p2 - origin))) : v.y;
     v.y = param < 0 ? fabs(dot(normalize(ab), normalize(qa))) : v.y;
-    
+
     return {v, param};
 }

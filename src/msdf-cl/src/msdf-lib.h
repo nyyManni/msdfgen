@@ -69,13 +69,7 @@ typedef struct vec3 {
 
 
 typedef struct segment_distance {
-    /* union { */
-        vec2 xy;
-    /*     struct { */
-    /*         float x; */
-    /*         float y; */
-    /*     }; */
-    /* }; */
+    vec2 xy;
     float z;
 } segment_distance;
 
