@@ -133,8 +133,8 @@ int msdf_glyph_buffer_size(msdf_font_handle f, int c, size_t *meta_size,
  * Serializes the given character data onto the buffers so that it can be sent
  * to the GPU. Return 0 in case of success.
  */
-int msdf_serialize_glyph(msdf_font_handle f, int c, void *meta, void *buf, int *width,
-                         int *height);
+int msdf_serialize_glyph(msdf_font_handle f, int c, void *meta, void *buf, float *width,
+                         float *height, float *bearing_x, float *bearing_y, float* advance);
 
 #ifdef __cplusplus
 }

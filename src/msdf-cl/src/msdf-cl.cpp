@@ -103,134 +103,6 @@ bool point_facing_edge(int prev_npoints, int prev_points, int cur_npoints, int c
            dot(point_dir, param < 0 ? prev_edge_dir : next_edge_dir);
 }
 
-// struct __glyph_data_ctx {
-//     bool allocated;
-//     int meta_size;
-//     int data_size;
-//     int current_contour_meta;
-// };
-
-// static inline float shoelace(const vec2 a, const vec2 b) {
-//     return (b.x - a.x) * (a.y + b.y);
-// }
-// static void update_winding(struct __glyph_data_ctx *ctx, int npoints, int points) {
-//     float total = 0;
-//     if (metadata2[ctx->current_contour_meta + 1] == 1) {
-//         /* First segment, calculate case nsegments == 1 */
-//         vec2 a = segment_point(points, npoints, 0.0);
-//         vec2 b = segment_point(points, npoints, 1.0 / 3.0);
-//         vec2 c = segment_point(points, npoints, 2.0 / 3.0);
-//     } else if (metadata2[ctx->current_contour_meta + 1] == 2) {
-//         /* Second segment, calculate case nsegments == 2 */
-//     } else {
-//         /* Third or later segment, update case nsegments == n */
-//     }
-//     metadata2[ctx->current_contour_meta + 1] = sign(total);
-// }
-
-// static int __add_contour_size(const FT_Vector *to, void *user) {
-//     struct __glyph_data_ctx *ctx = (struct __glyph_data_ctx *)user;
-//     if (ctx->allocated) {
-//         point_data2[ctx->data_size].x = to->x / 64.0;
-//         point_data2[ctx->data_size].y = to->y / 64.0;
-        
-//         metadata2[ctx->meta_size] = 0; /* winding */
-//         metadata2[ctx->meta_size + 1] = 0;
-//         ctx->current_contour_meta = ctx->meta_size;
-//     }
-
-//     ctx->data_size += 1;
-//     ctx->meta_size += 2;  /* winding + nsegments */
-//     return 0;
-// }
-// static int __add_linear_size(const FT_Vector *to, void *user) {
-//     struct __glyph_data_ctx *ctx = (struct __glyph_data_ctx *)user;
-//     if (ctx->allocated) {
-//         point_data2[ctx->data_size].x = to->x / 64.0;
-//         point_data2[ctx->data_size].y = to->y / 64.0;
-//         metadata2[ctx->current_contour_meta + 1] += 1;
-//         metadata2[ctx->meta_size] = 0;  /* color */
-//         metadata2[ctx->meta_size + 1] = 2;  /* npoints */
-//     }
-//     ctx->data_size += 1;
-//     ctx->meta_size += 2;  /* color + npoints */
-//     return 0;
-// }
-// static int __add_quad_size(const FT_Vector *control, const FT_Vector *to, void *user) {
-//     struct __glyph_data_ctx *ctx = (struct __glyph_data_ctx *)user;
-//     if (ctx->allocated) {
-//         point_data2[ctx->data_size].x = to->x / 64.0;
-//         point_data2[ctx->data_size].y = to->y / 64.0;
-//         point_data2[ctx->data_size + 1].x = to->x / 64.0;
-//         point_data2[ctx->data_size + 1].y = to->y / 64.0;
-
-//         metadata2[ctx->current_contour_meta + 1] += 1;
-//         metadata2[ctx->meta_size] = 0;  /* color */
-//         metadata2[ctx->meta_size + 1] = 3;  /* npoints */
-//     }
-//     ctx->data_size += 2;
-//     ctx->meta_size += 2;  /* color + npoints */
-//     return 0;
-// }
-// static int __add_cubic_size(const FT_Vector *control1, const FT_Vector *control2, 
-//                             const FT_Vector *to, void *s) {
-//     fprintf(stderr, "Cubic segments not supported\n");
-//     return -1;
-// }
-
-// void *msdf_load_glyph(FT_Face face, int code) {
-//     if (FT_Load_Char(face, code, FT_LOAD_NO_SCALE)) return NULL;
-
-//     FT_Outline_Funcs fns;
-//     fns.shift = 0;
-//     fns.delta = 0;
-//     fns.move_to = &__add_contour_size;
-//     fns.line_to = &__add_linear_size;
-//     fns.conic_to = &__add_quad_size;
-//     fns.cubic_to = &__add_cubic_size;
-
-//     /* We need two rounds of decomposing, the first one will just figure out
-//        how much space we need to serialize the glyph, and the second one
-//        serializes it and generates colour mapping for the segments. */
-//     struct __glyph_data_ctx ctx = {0, 0};
-//     if (FT_Outline_Decompose(&face->glyph->outline, &fns, &ctx)) return NULL;
-
-//     point_data2 = (vec2 *)malloc(ctx.data_size * sizeof(vec2));
-//     metadata2 = (unsigned char *)malloc(ctx.meta_size);
-    
-//     ctx.allocated = true;
-//     ctx.meta_size = 0;
-//     ctx.data_size = 0;
-
-//     /* Second round populates the point data. */
-//     if (FT_Outline_Decompose(&face->glyph->outline, &fns, &ctx)) return NULL;
-
-//     /* Calculate windings. */
-//     size_t point_index = 0;
-//     size_t meta_index = 0;
-
-//     unsigned char ncontours = metadata[meta_index++];
-
-//     for (int _i = 0; _i < ncontours; ++_i) {
-
-//         char winding = (char)metadata[meta_index++] - 1;
-//         unsigned char nsegments = metadata[meta_index++];
-
-//         if (!nsegments)
-//             continue;
-        
-//         float total = 0;
-//         if (nsegments == 1) {
-//             // vec2 a
-//         }
-        
-//     }
-
-//     return NULL;
-// }
-
-
-// static inline vec2 Point2_to_vec2(msdfgen::Point2 p) { return vec2(p.x, p.y); }
 int main() {
 
     msdf_font_handle f =
@@ -252,7 +124,7 @@ int main() {
     float range = 4.0;
 
     int w = ceil((width + range) * scale.x);
-    int h = ceil((height + range) * scale.x);
+    int h = ceil((height + range) * scale.y);
 
     output = (vec3 *)malloc(h * w * sizeof(vec3));
 

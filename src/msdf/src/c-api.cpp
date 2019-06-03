@@ -24,10 +24,10 @@ msdf_font_handle msdf_load_font(const char *path) {
     f->xheight = f->face->glyph->metrics.height / 64.0;
     f->ascender = f->face->ascender / 64.0;
     f->descender = f->face->descender / 64.0;
-    f->height = (f->ascender - f->descender) / f->xheight;
+    f->height = (f->ascender - f->descender);
 
-    f->underline_y = f->face->underline_position / 64.0 / f->xheight;
-    f->underline_thickness = f->face->underline_thickness / 64.0 / f->xheight;
+    f->underline_y = f->face->underline_position / 64.0;
+    f->underline_thickness = f->face->underline_thickness / 64.0;
 
     return f;
 }
@@ -145,7 +145,8 @@ int msdf_glyph_buffer_size(msdf_font_handle f, int c, size_t *meta_size,
 static inline vec2 Point2_to_vec2(msdfgen::Point2 p) { return vec2(p.x, p.y); }
 
 int msdf_serialize_glyph(msdf_font_handle f, int c, void *meta, void *buf,
-                         int *width, int *height) {
+                         float *width, float *height, float *bearing_x, float *bearing_y,
+                         float *advance) {
     msdfgen::FontHandle *font = (msdfgen::FontHandle *)f->__handle;
     msdfgen::Shape shape;
     msdfgen::loadGlyph(shape, font, c);
@@ -186,8 +187,12 @@ int msdf_serialize_glyph(msdf_font_handle f, int c, void *meta, void *buf,
             }
         }
     }
-    *width = font->face->glyph->metrics.width / 64.0;
-    *height = font->face->glyph->metrics.height / 64.0;
+    *width = (float)font->face->glyph->metrics.width / 64.0;
+    *height = (float)font->face->glyph->metrics.height / 64.0;
 
+    *bearing_x = (float)font->face->glyph->metrics.horiBearingX / 64.0;
+    *bearing_y = (float)font->face->glyph->metrics.horiBearingY / 64.0;
+    
+    *advance = (float)font->face->glyph->metrics.horiAdvance / 64.0;
     return 0;
 }

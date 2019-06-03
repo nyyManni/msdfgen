@@ -28,7 +28,7 @@ public:
         pixel.r = float(distance.r/range+.5);
         pixel.g = float(distance.g/range+.5);
         pixel.b = float(distance.b/range+.5);
-        printf("--> PIXEL: %.2f %.2f %.2f\n", pixel.r, pixel.g, pixel.b);
+        // printf("--> PIXEL: %.2f %.2f %.2f\n", pixel.r, pixel.g, pixel.b);
         return pixel;
     }
 };
@@ -37,15 +37,15 @@ template <class ContourCombiner>
 void generateDistanceField(Bitmap<typename DistancePixelConversion<typename ContourCombiner::DistanceType>::PixelType> &output, const Shape &shape, double range, const Vector2 &scale, const Vector2 &translate) {
     int w = output.width(), h = output.height();
 
-// #ifdef MSDFGEN_USE_OPENMP
-//     #pragma omp parallel
-// #endif
+#ifdef MSDFGEN_USE_OPENMP
+    #pragma omp parallel
+#endif
     {
         ContourCombiner contourCombiner(shape);
         Point2 p;
-// #ifdef MSDFGEN_USE_OPENMP
-//         #pragma omp for
-// #endif
+#ifdef MSDFGEN_USE_OPENMP
+        #pragma omp for
+#endif
         for (int y = 0; y < h; ++y) {
             int row = shape.inverseYAxis ? h-y-1 : y;
             p.y = (y+.5)/scale.y-translate.y;
